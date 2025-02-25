@@ -95,3 +95,29 @@ median_age <- median_age %>%
 emma_data <- emma_data %>% 
   left_join(median_age, by = c("country", "year", "ccode"), relationship = "many-to-many") 
 rm(median_age)
+
+# 5. Immigration data (United Nations, 2024)
+# 5.1. Reading in data. 
+migration_data <- read.csv("https://data.un.org/_Docs/SYB/CSV/SYB67_327_202411_International%20Migrants%20and%20Refugees.csv", skip = 1)
+
+# 5.2. Cleaning up data. 
+migration_data <- migration_data %>%
+  subset(select = c(X, Year, Series, Value)) %>%
+  rename(country = X, 
+         year = Year,
+         type = Series,
+         value = Value) %>%
+  filter(type %in% c("Total refugees and people in refugee-like situations (number)")) %>%
+  pivot_wider(names_from = type, values_from = value) %>% 
+  rename(tot_refugees = `Total refugees and people in refugee-like situations (number)`) %>%
+  complete(country, year = full_seq(year, 1)) %>% # Ensures there is an observation between the max and min of year. 
+  arrange(country, year) %>%
+  fill(tot_refugees, .direction = "down")
+migration_data <- migration_data %>% # Merge in ccodes. 
+  left_join(ccodes, by = c("country", "year"), relationship = "many-to-many") %>% 
+  distinct() # Appears that it generates some NAs randomly--not sure why. 
+
+# 5.3. Merging into data set. 
+emma_data <- emma_data %>% 
+  left_join(migration_data, by = c("country", "year", "ccode"), relationship = "many-to-many") # Resulting NA's in the tot_refugees column result from lack of data for given year. 
+rm(migration_data)
