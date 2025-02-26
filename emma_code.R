@@ -3,7 +3,7 @@
 # 1.1. Reading in data. 
 coup_data <- read_delim("http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coups_final.txt", 
                         delim = "\t", escape_double = FALSE, 
-                        trim_ws = TRUE) # Reading in coup data. 
+                        trim_ws = TRUE) 
 
 # 1.2. Cleaning up data. 
 coup_data <- coup_data %>% # I am getting rid of successes & fails--only if a coup was attempted! 
@@ -15,7 +15,7 @@ coup_data <- coup_data %>% # I am getting rid of successes & fails--only if a co
 # 1.3. Merging into data set. 
 emma_data <- base_data %>% 
   left_join(coup_data, by = c("year", "country", "ccode", "month")) %>%
-  mutate(coup_attempted = ifelse(is.na(coup_attempted), 0, as.numeric(coup_attempted)))
+  mutate(coup_attempted = ifelse(is.na(coup_attempted), 0, as.numeric(coup_attempted))) # No NAs. 
 label(emma_data$coup_attempted) <- "2 = successful, 1 = failed"
 rm(base_data, coup_data) # Keeping things clean! 
 
@@ -37,10 +37,10 @@ popln_data <- world_bank %>%
          year = Year,
          popln_tot = Value) %>% 
   left_join(ccodes, by = c("year", "country")) %>%
-  drop_na()
+  drop_na() # NAs from non-country categories. 
 
 # 2.3. Merging into data set. 
-emma_data <- emma_data %>% # No 2024 data. 
+emma_data <- emma_data %>% # No 2024 data--resulting in a lot of missing values. 
   filter(year >= 1960) %>%
   left_join(popln_data, by = c("country", "year", "ccode"), relationship = "many-to-many") %>%
   filter(!(country == "St. Vincent and the Grenadines" & duplicated(paste(year, ccode)))) # For some reason, St. Vincent got weird. 
@@ -59,9 +59,12 @@ age_popln <- world_bank %>%
   rename(country = Country.Name,
          year = Year,
          age_tot = Value,
-         type = Disaggregation) %>%
-  left_join(ccodes, by = c("country", "year"), relationship = "many-to-many") %>%
-  drop_na() %>% 
+         type = Disaggregation)
+age_popln <- age_popln %>%
+  left_join(ccodes, by = c("country", "year"), relationship = "many-to-many") %>% 
+  drop_na() %>% # NAs from non-country rows. 
+  distinct() # Random duplicates. 
+age_popln <- age_popln %>%
   pivot_wider(names_from = type, values_from = age_tot, values_fn = first) %>%
   rename(age0_14 = `total, 0-14`, 
          age15_64 = `total, 15-64`,
@@ -69,7 +72,8 @@ age_popln <- world_bank %>%
 
 # 3.3. Merging into data set. 
 emma_data <- emma_data %>% # No 2024 data. 
-  left_join(age_popln, by = c("country", "year", "ccode"), relationship = "many-to-many") 
+  left_join(age_popln, by = c("country", "year", "ccode"), relationship = "many-to-many") %>%
+  distinct() # Random duplicates. 
 rm(world_bank, age_popln)
 
 # 4. Median age data (World Bank Data Group 2024)
@@ -87,11 +91,37 @@ median_age <- median_age %>%
          popln_median_est = median_age__sex_all__age_all__variant_medium) %>%
   mutate(median_age = ifelse(is.na(popln_median), popln_median_est, popln_median)) %>%
   subset(select = -c(popln_median, popln_median_est)) %>% 
-  filter(year <= 2024) %>% 
-  left_join(ccodes, by = c("country", "year"), relationship = "many-to-many") %>% 
-  drop_na()
+  filter(year <= 2024)
+median_age <- median_age %>%
+  left_join(ccodes, by = c("country", "year")) %>%
+  drop_na() %>% # NAs from non-country rows. 
+  distinct() # Random duplicates. 
 
 # 4.3. Merging into data set. 
 emma_data <- emma_data %>% 
   left_join(median_age, by = c("country", "year", "ccode"), relationship = "many-to-many") 
 rm(median_age)
+
+# 5. Age expectancy data. 
+# 5.1. Reading in data. 
+url <- "https://srhdpeuwpubsa.blob.core.windows.net/whdh/DATADOT/INDICATOR/C64284D_ALL_LATEST.csv"
+age_expectancy <- read_csv(url)
+rm(url)
+
+# 5.2. Cleaning up data. 
+age_expectancy <- age_expectancy %>%
+  subset(select = c(DIM_TIME, GEO_NAME_SHORT, DIM_SEX, AMOUNT_N)) %>%
+  filter(DIM_SEX == 'TOTAL') %>%
+  rename(country = GEO_NAME_SHORT, 
+         year = DIM_TIME, 
+         age_expectancy = AMOUNT_N) %>%
+  subset(select = -c(DIM_SEX))
+age_expectancy <- age_expectancy %>%
+  left_join(ccodes, by = c("country", "year")) %>% # Missing 'Côte d'Ivoire', 'Türkiye', 'Zambia', 'Zimbabwe'
+  drop_na() %>% # NAs from non-country rows. 
+  distinct() # Random duplicates from Yemen. 
+
+# 5.3. Merging into data set. 
+emma_data <- emma_data %>% 
+  left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
+rm(age_expectancy)
