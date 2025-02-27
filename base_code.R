@@ -5,7 +5,9 @@ setwd("") # Set working file.
 source("packages.R") # Bring in packages. 
 source("libraries.R") # 'Wake up' packages. 
 
-base_data <- read_csv("base_data.csv") # Reading in base data. 
+url <- "https://www.uky.edu/~clthyn2/base_data.csv"
+base_data <- read.csv(url) # Reading in base data. 
+rm(url)
 
 # 0. Country codes (Thyne 2022). 
 url <- "https://www.uky.edu/~clthyn2/replace_ccode_country.xls" # Bringing in ccodes to merge. 
