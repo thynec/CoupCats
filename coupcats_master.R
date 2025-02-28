@@ -1,6 +1,19 @@
+
+
+###########################################################################
+####READ ME!
+#CoupCats - please skim to look for "####CT:..." each time you open this.  
+#I'm making notes as I clean things to help you learn some stuff.  
+#Once you read the note go ahead and delete it.
+###########################################################################
+
+
+
+
 rm(list=ls())
-asdf
+
 #setwd("C:/Users/Camila/OneDrive/R related/R/R") # Set working file. #Camila
+setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
 
 #load packages: if needed, go in and remove # but don't forget to put it back#
 #####
@@ -131,14 +144,18 @@ curl::curl_download(url, destfile)
 ccodes <- read_excel(destfile)
 rm(url, destfile)
 
-ccodes <- ccodes %>% # THESE NEED UPDATED! 
-  filter(year == 2022) %>%
-  mutate(year = 2023) %>%
-  bind_rows(ccodes, .) 
-ccodes <- ccodes %>%
-  filter(year == 2022) %>%
-  mutate(year = 2024) %>% 
-  bind_rows(ccodes, .)
+#####CT (02/28/25): EMMA - not sure what below is for. Think you probably wrote it before I 
+#updated the replace_ccode_country.xls. Unless I'm  missing something, go ahead and delete
+#lines 139-146 below (along with this note).
+
+#ccodes <- ccodes %>% # THESE NEED UPDATED! 
+#  filter(year == 2022) %>%
+#  mutate(year = 2023) %>%
+#  bind_rows(ccodes, .) 
+#ccodes <- ccodes %>%
+#  filter(year == 2022) %>%
+#  mutate(year = 2024) %>% 
+#  bind_rows(ccodes, .)
 
 # -------------------------- Social Data ------------------------------ #
 # 1. Coup data (Powell & Thyne 2011). 
@@ -151,15 +168,34 @@ coup_data <- read_delim("http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coup
 coup_data <- coup_data %>% # I am getting rid of successes & fails--only if a coup was attempted! 
   select(-ccode_gw, -ccode_polity, -day, -version) %>% 
   mutate(coup_attempted = 1) %>% 
-  select(-coup) %>% 
+  select(-coup) 
+check <- coup_data %>%
+  arrange(ccode, year, month) %>%
+  mutate(check=ifelse(year==lag(year) & ccode==lag(ccode) & month==lag(month), 1, 0))
+  #above telling me we have 7 instances where we had 2+ coups in the same ccode/year/month; just fine to collapse these...
+    rm(check)
+coup_data <- coup_data %>% 
   distinct(ccode, year, month, .keep_all = TRUE) 
 
+####CT: EMMA - you had "country in the left_join line"; don't do that; just merge by ccode/year/month; 
+#those countries can screw you up when USA~=U.S.A., for example. Best just to drop country from the
+#DF you're merging into the base_data.
+
 # 1.3. Merging into data set. 
-emma_data <- base_data %>% 
-  left_join(coup_data, by = c("year", "country", "ccode", "month")) %>%
+coup_data <- coup_data %>%
+  select(-country)
+base_data <- base_data %>% 
+  left_join(coup_data, by = c("year", "ccode", "month")) %>%
   mutate(coup_attempted = ifelse(is.na(coup_attempted), 0, as.numeric(coup_attempted))) # No NAs. 
-label(emma_data$coup_attempted) <- "2 = successful, 1 = failed"
-rm(base_data, coup_data) # Keeping things clean! 
+rm(coup_data) # Keeping things clean! 
+
+
+
+###########################################################################
+####CT: reviewed everything above and it's good. Updated 02/28/25.
+###########################################################################
+
+
 
 # 2. Population data (World Bank Data Group 2024). 
 # 2.1. Reading in data. 
