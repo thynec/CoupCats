@@ -69,6 +69,7 @@ setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_researc
 #install.packages("peacesciencer")  # Political science/peace studies tools
 #install.packages("rcompanion") # Companion functions for statistical tasks
 #install.packages("rgl") # 3D visualization
+#install.packages("WDI") # World Bank Worldwide Data Indicators 
 
 # Data Collection and Statistics
 #install.packages("tigerstats") # Common statistical analysis methods
@@ -129,6 +130,7 @@ library(gapminder) # Global development indicators and example data
 library(peacesciencer)  # Political science/peace studies tools
 library(rcompanion) # Companion functions for statistical tasks
 library(rgl) # 3D visualization
+library(WDI) # World Bank Worldwide Data Indicators 
 
 # Data Collection and Statistics
 library(tigerstats) # Common statistical analysis methods
