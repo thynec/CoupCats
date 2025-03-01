@@ -303,3 +303,63 @@ age_expectancy <- age_expectancy %>%
 emma_data <- emma_data %>% 
   left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
 rm(age_expectancy)
+
+# ------------------------------------ Military data  ------------------------------------ #
+
+# 1.Military expenditure (% of GDP)
+# 1.1 Loading data
+url <- "https://api.worldbank.org/v2/en/indicator/MS.MIL.XPND.GD.ZS?downloadformat=excel"
+destfile <- "MS_MIL_XPND_GD.xls"
+curl::curl_download(url, destfile)
+military_exp <- read_excel(destfile, skip = 3)
+rm(destfile, url)
+
+#1.2 Reshaping data
+military_exp <- military_exp %>%
+  rename( "country" = `Country Name`) %>% 
+  subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`))  #removing things we don't want
+  
+military_exp <- military_exp %>%
+  pivot_longer(
+    cols = -c(country),  # Keep country-related columns fixed
+    names_to = "year",  
+    values_to = "military expenditure"
+  ) %>%
+  mutate(year = as.integer(year))  # Convert Year to integer
+label(military_exp$`military expenditure`) <- "(% of GDP)"
+
+
+# 2.Armed forces personnel (total)
+# 2.1 Loading data
+url <- "https://api.worldbank.org/v2/en/indicator/MS.MIL.TOTL.P1?downloadformat=excel"
+destfile <- "MS_MIL_TOTL.xls"
+curl::curl_download(url, destfile)
+personnel <- read_excel(destfile, skip = 3)
+rm(destfile, url)
+
+# 2.2 Reshaping data
+personnel <- personnel %>%
+  rename( "country" = `Country Name`) %>% 
+  subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`)) #removing things we don't want
+
+personnel <- personnel %>%
+  pivot_longer(
+    cols = -c(country),  # Keep country-related columns fixed
+    names_to = "year",  
+    values_to = "personnel"
+  ) %>%
+  mutate(year = as.integer(year))  # Convert Year to integer
+label(personnel$personnel) <- "(total)"
+
+
+# 3 Merging
+military_data <- military_exp %>%
+  left_join(personnel, by = c("country", "year")) %>% 
+  left_join(ccodes, by = c("country", "year")) 
+rm(military_exp, personnel) #keeping things clean
+
+# Checking NAs: ----- Missing Zimbabwe, Zambia, and "Turkiye" in ccodes
+check_na <- military_data %>% 
+  filter(is.na(ccode))
+unique(check_na$country)
+rm(check_na)
