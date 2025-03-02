@@ -159,6 +159,30 @@ rm(url, destfile)
 #  mutate(year = 2024) %>% 
 #  bind_rows(ccodes, .)
 
+# -------------------------- Political Data ------------------------------ #
+
+# 1. Perceptions of Corruption (Transparency International, Corruption Perceptions Index). 
+# 1.1. Reading in data. 
+wgi_data <- WDI(indicator = c("CC.EST", "CC.PER.RNK"), country = "all", start = 1996, end = 2023, extra = TRUE) # Data are reported every two years--need to figure out a way to transform. 
+
+# 1.2. Cleaning up data. 
+wgi_data <- wgi_data %>%
+  subset(select = c(country, year, CC.EST, CC.PER.RNK)) %>% 
+  rename(corr_est = CC.EST, 
+         corr_rank = CC.PER.RNK)
+wgi_data <- wgi_data %>%
+  left_join(ccodes, by = c("year", "country")) %>% # NAs are unreported years & non-country actors.  
+  subset(select = -c(country)) %>%
+  drop_na()
+
+# 1.3. Merging into data set. 
+emma_data <- base_data %>% 
+  left_join(wgi_data, by = c("year", "ccode")) # NAs are unreported years. 
+rm(wgi_data, base_data)  
+
+df_na <- df[rowSums(is.na(df)) > 0, ]
+df_dup <- df[duplicated(df) | duplicated(df, fromLast = TRUE), ]
+
 # -------------------------- Social Data ------------------------------ #
 # 1. Coup data (Powell & Thyne 2011). 
 # 1.1. Reading in data. 
