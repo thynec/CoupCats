@@ -1,16 +1,27 @@
-#get packages
-install.packages('aod')
-install.packages('ggplot2')
-install.packages('dplyr')
-install.packages('readxl')
-install.packages('broom')
+rm(list=ls())
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at home
 
-#libraries
-library(aod)
+#get packages
+#####
+#install.packages('aod')
+#install.packages('ggplot2')
+#install.packages('dplyr')
+#install.packages('readxl')
+#install.packages('broom')
+#####
+
+#load libraries
+#####library(aod)
 library(ggplot2)
 library(dplyr)
 library(readxl)
+library(readr)
 library(broom)
+#####
+
+#CT note to user on 03/02/25: Keep using the fake data for now, though we're close to having good data. As I get it cleaned and ready for analysis, I'll just update the .csv on the main branch and you can load it from there. Just use the following commmand...
+base_data <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/base_data.csv")
+
 
 #data reading (generated first, then real0
 fakedata <- read_excel('C:/Users/kadem/Downloads/coup_data_with_predictions.xlsx')
