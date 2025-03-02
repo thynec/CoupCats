@@ -1,14 +1,7 @@
-
-
 ###########################################################################
 ####READ ME!
-#CoupCats - please skim to look for "####CT:..." each time you open this.  
-#I'm making notes as I clean things to help you learn some stuff.  
-#Once you read the note go ahead and delete it.
+#CoupCats - please skim to look for "####CT:..." each time you open this.  I'm making notes as I clean things to help you learn some stuff.  Once you read the note go ahead and delete it.
 ###########################################################################
-
-
-
 
 rm(list=ls())
 
@@ -24,6 +17,7 @@ setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_researc
 #install.packages("haven") # Imports & exports SPSS, SAS, and Stata files
 #install.packages("janitor") # Cleans column names and tidies data
 #install.packages("Hmisc") # For labeling data. 
+#install.packages("pltesim") #For setting up bctcs peace year
 
 # Data Visualization
 #install.packages("ggplot2") # Primary package for data visualization
@@ -85,6 +79,7 @@ library(haven) # Imports & exports SPSS, SAS, and Stata files
 library(janitor) # Cleans column names and tidies data
 library(Hmisc) # For labeling data. 
 library(readxl) # To read excel sheets.
+library(pltesim) # To set up btscs; see https://www.rdocumentation.org/packages/DAMisc/versions/1.7.2/topics/btscs
 
 # Data Visualization
 library(ggplot2) # Primary package for data visualization
@@ -137,6 +132,8 @@ library(tigerstats) # Common statistical analysis methods
 library(vcd) # Visualize categorical data using association plots
 #####
 
+# -------------------------- Baseline Data ------------------------------ #
+
 base_data <- read_csv("https://www.uky.edu/~clthyn2/base_data.csv") # Reading in base data. 
 
 # 0. Country codes (Thyne 2022). 
@@ -146,42 +143,44 @@ curl::curl_download(url, destfile)
 ccodes <- read_excel(destfile)
 rm(url, destfile)
 
-#####CT (02/28/25): EMMA - not sure what below is for. Think you probably wrote it before I 
-#updated the replace_ccode_country.xls. Unless I'm  missing something, go ahead and delete
-#lines 139-146 below (along with this note).
-
-#ccodes <- ccodes %>% # THESE NEED UPDATED! 
-#  filter(year == 2022) %>%
-#  mutate(year = 2023) %>%
-#  bind_rows(ccodes, .) 
-#ccodes <- ccodes %>%
-#  filter(year == 2022) %>%
-#  mutate(year = 2024) %>% 
-#  bind_rows(ccodes, .)
-
 # -------------------------- Political Data ------------------------------ #
 
 # 1. Perceptions of Corruption (Transparency International, Corruption Perceptions Index). 
 # 1.1. Reading in data. 
-wgi_data <- WDI(indicator = c("CC.EST", "CC.PER.RNK"), country = "all", start = 1996, end = 2023, extra = TRUE) # Data are reported every two years--need to figure out a way to transform. 
+wdi_data <- WDI(indicator = c("CC.EST", "CC.PER.RNK"), country = "all", start = 1996, end = 2023, extra = TRUE) # Data are reported every two years--need to figure out a way to transform. 
 
 # 1.2. Cleaning up data. 
-wgi_data <- wgi_data %>%
-  subset(select = c(country, year, CC.EST, CC.PER.RNK)) %>% 
-  rename(corr_est = CC.EST, 
-         corr_rank = CC.PER.RNK)
-wgi_data <- wgi_data %>%
-  left_join(ccodes, by = c("year", "country")) %>% # NAs are unreported years & non-country actors.  
-  subset(select = -c(country)) %>%
-  drop_na()
+wdi_data <- wdi_data %>%
+  mutate(year=year+1) %>% #just lagged by adding a year
+  subset(select = c(country, year, CC.EST, CC.PER.RNK, region)) %>% 
+  rename(corruption_est = CC.EST, 
+         corruption_rank = CC.PER.RNK,
+         wdi_region = region) %>%
+  set_variable_labels(
+    corruption_est="Control of Corruption: Estimate; from WDI; t-1",
+    corruption_rank="Control of Corruption: Percentile Rank; from WDI; t-1",
+    wdi_region="regions from WDI"
+  )
+wdi_data <- wdi_data %>%
+  left_join(ccodes, by = c("year", "country")) 
+check <- wdi_data %>%
+  filter(if_any(everything(), is.na)) 
+  table(check$country)
+  table(check$year)
+    #check looks fine; missing 3 in normal places due to temporal coverage; other missings are due to small countries or regions
+    rm(check) 
 
-# 1.3. Merging into data set. 
-emma_data <- base_data %>% 
-  left_join(wgi_data, by = c("year", "ccode")) # NAs are unreported years. 
-rm(wgi_data, base_data)  
-
-df_na <- df[rowSums(is.na(df)) > 0, ]
-df_dup <- df[duplicated(df) | duplicated(df, fromLast = TRUE), ]
+# 1.3. Merging into data set. Do this twice. First for corruption by ccode/year; then for region by ccode (region doesn't vary by time)
+wdi1 <- wdi_data %>%
+  select(-country, -wdi_region)
+base_data <- base_data %>% 
+  left_join(wdi1, by = c("year", "ccode")) # NAs are unreported years. 
+wdi2 <- wdi_data %>%
+  select(ccode, wdi_region) %>%
+  distinct()
+base_data <- base_data %>%
+  left_join(wdi2, by=c("ccode"))
+rm(wdi_data, wdi1, wdi2)
 
 # -------------------------- Social Data ------------------------------ #
 # 1. Coup data (Powell & Thyne 2011). 
@@ -191,35 +190,85 @@ coup_data <- read_delim("http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coup
                         trim_ws = TRUE) 
 
 # 1.2. Cleaning up data. 
-coup_data <- coup_data %>% # I am getting rid of successes & fails--only if a coup was attempted! 
-  select(-ccode_gw, -ccode_polity, -day, -version) %>% 
-  mutate(coup_attempted = 1) %>% 
-  select(-coup) 
 check <- coup_data %>%
-  arrange(ccode, year, month) %>%
-  mutate(check=ifelse(year==lag(year) & ccode==lag(ccode) & month==lag(month), 1, 0))
-  #above telling me we have 7 instances where we had 2+ coups in the same ccode/year/month; just fine to collapse these...
-    rm(check)
-coup_data <- coup_data %>% 
-  distinct(ccode, year, month, .keep_all = TRUE) 
+  filter(ccode==lag(ccode) & year==lag(year) & month==lag(month))
+#we have 6 cases of 2 coups in the same month:
+  #Haiti, 41, 04/1989; both failed
+  #Bolivia, 145, 05/1981; both failed
+  #Argentina, 160, 12/1975; both failed
+  #Sierra Leone, 451, 03/1967; second successful
+  #Togo, 461, 10/1991; both failed
+  #Sudan, 625, 12/1966; both failed
+    #Just need to make successful in Sierra Leone trump the failed one; all others are fine because both failed
+table(coup_data$coup)
+coup_data <- coup_data %>%
+  mutate(coup=ifelse(ccode==451 & year==1967 & month==3, 2, coup))
+table(coup_data$coup) #looks good; proceed...
+rm(check)
 
-####CT: EMMA - you had "country in the left_join line"; don't do that; just merge by ccode/year/month; 
-#those countries can screw you up when USA~=U.S.A., for example. Best just to drop country from the
-#DF you're merging into the base_data.
+coup_data <- coup_data %>% 
+  select(-ccode_gw, -ccode_polity, -day, -version) %>%
+  distinct() %>% #dropped the obs where 2 coups in same month, as above
+  mutate(coup_attempt = 1) %>%
+  mutate(coup_successful=ifelse(coup==2, 1, NA)) %>%
+  mutate(coup_failed=ifelse(coup==1, 1, NA))
+table(coup_data$coup_attempt)
+table(coup_data$coup, coup_data$coup_attempt)
+table(coup_data$coup, coup_data$coup_successful)
+table(coup_data$coup, coup_data$coup_failed)
+#after merge, should have...
+  #487 attempts
+  #246 successful
+  #241 failed
+#everything above looks good; proceed...
 
 # 1.3. Merging into data set. 
 coup_data <- coup_data %>%
-  select(-country)
+  select(-country, -coup)
 base_data <- base_data %>% 
-  left_join(coup_data, by = c("year", "ccode", "month")) %>%
-  mutate(coup_attempted = ifelse(is.na(coup_attempted), 0, as.numeric(coup_attempted))) # No NAs. 
-rm(coup_data) # Keeping things clean! 
+  left_join(coup_data, by = c("year", "ccode", "month"))
+base_data <- base_data %>%
+  mutate(coup_attempt = ifelse(is.na(coup_attempt) & year>=1950, 0, as.numeric(coup_attempt))) %>%
+  mutate(coup_successful = ifelse(is.na(coup_successful) & year>=1950, 0, as.numeric(coup_successful))) %>%
+  mutate(coup_failed = ifelse(is.na(coup_failed) & year>=1950, 0, as.numeric(coup_failed))) 
+table(base_data$coup_attempt) 
+table(base_data$coup_successful) 
+table(base_data$coup_failed) 
+  #we lost one successful coup because COW doesn't recognize Oman in 1970; we're good on this; proceed...
+rm(coup_data) # Keeping things clean
+
+# 1.4. Set up non-coup months to deal with autocorrelation in the analyses
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(sequence=row_number())
+base_data <- base_data %>%
+  btscs('coup_attempt', 'year', 'ccode') %>%
+  rename(pce=spell_time) %>%
+  mutate(pce2=pce*pce) %>%
+  mutate(pce3=pce*pce*pce) %>%
+  set_variable_labels(
+    pce="Months since last coup",
+    pce2="Months^2",
+    pce3="Months^3") %>%
+  select(-sequence)
+#For above, peace years are set up ignoring success/failed; go back and re-created these if you end up wanting to analyze success/failed instead of all attempts
 
 
 
-###########################################################################
-####CT: reviewed everything above and it's good. Updated 02/28/25.
-###########################################################################
+
+
+
+###############################################################################################
+#Checked through above and ready to produce .csv and upload to github
+write.csv(base_data, "base_data.csv", row.names = FALSE)
+#Now push push the file that was just written to the working directory to github
+###############################################################################################
+
+
+
+
+
 
 
 
@@ -229,9 +278,10 @@ url <- "https://extdataportal.worldbank.org/content/dam/sites/data/gender-data/d
 zip_file <- "population-data.zip"
 download.file(url, zip_file, mode = "wb")
 unzip(zip_file, exdir = "unzipped_data") 
-
 world_bank <- read.csv("unzipped_data/Population (number).csv") # WB is missing data for 2024. This will update automatically after they add it. 
 rm(url, zip_file)
+unlink("population-data.zip")
+unlink("unzipped_data", recursive=TRUE)
 
 # 2.2. Cleaning up data. 
 popln_data <- world_bank %>%
@@ -240,13 +290,36 @@ popln_data <- world_bank %>%
   rename(country = Country.Name,
          year = Year,
          popln_tot = Value) %>% 
-  left_join(ccodes, by = c("year", "country")) %>%
-  drop_na() # NAs from non-country categories. 
+  left_join(ccodes, by = c("year", "country")) 
+check <- popln_data %>%
+  filter(if_any(everything(), is.na))
+    table(check$country) #all regions or tiny countries; we're fine to drop NAs
+popln_data <- popln_data %>%
+  drop_na() %>%
+  select(-country)
+rm(check, world_bank)
+check <- popln_data %>%
+  distinct() #no duplicates in pop data
+check <- base_data %>%
+  distinct() #no duplicates in base data
+rm(check)
 
 # 2.3. Merging into data set. 
-emma_data <- emma_data %>% # No 2024 data--resulting in a lot of missing values. 
-  filter(year >= 1960) %>%
-  left_join(popln_data, by = c("country", "year", "ccode"), relationship = "many-to-many") %>%
+base_data <- base_data %>% 
+  ungroup() %>%
+  left_join(popln_data, by = c("ccode", "year"))
+rm(popln_data)            
+
+            
+            
+base2 <- base_data2
+%>%
+  select(ccode, country, year) %>%
+  mutate(base2=1)
+            
+            
+            
+            , relationship = "many-to-many") %>%
   filter(!(country == "St. Vincent and the Grenadines" & duplicated(paste(year, ccode)))) # For some reason, St. Vincent got weird. 
 label(emma_data$popln_tot) <- "total population" 
 rm(popln_data)
@@ -344,7 +417,7 @@ rm(destfile, url)
 military_exp <- military_exp %>%
   rename( "country" = `Country Name`) %>% 
   subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`))  #removing things we don't want
-  
+
 military_exp <- military_exp %>%
   pivot_longer(
     cols = -c(country),  # Keep country-related columns fixed
