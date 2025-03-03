@@ -17,6 +17,8 @@ install.packages("ggmosaic") # Creates mosaic plots
 install.packages("ggpubr") # Enhances ggplot2 with greater details
 install.packages("ggstance") # Horizontal geoms for ggplot2
 install.packages("plotly") # Create interactive plots
+install.packages("cowplot") #Add on to ggplot
+install.packages("scales") #Used to color code significance
 
 # Statistical Analysis and Modeling
 install.packages("broom") # Tidy model outputs into data frames
@@ -26,6 +28,7 @@ install.packages("emmeans") # Estimated marginal means and model comparisons
 install.packages("olsrr") # Linear regression diagnostics and model selection
 install.packages("lme4") # Linear and generalized linear mixed-effects models
 install.packages("MASS") # Various statistical models and methods
+install.packages("margins") #Used for marginal effects
 
 # Spatial Analysis
 install.packages("sf") # Handle spatial data and analysis
@@ -41,6 +44,7 @@ install.packages("performance") # Evaluate model performance and diagnostics
 install.packages("DHARMa") # Residual diagnostics for GLMs
 
 # Data Summarization and Reporting
+install.packages("gt") #used for regression tables
 install.packages("gtsummary") # Summarizes regression models
 install.packages("summarytools") # Quick summaries of your data
 install.packages("stargazer") # Creates regression tables
