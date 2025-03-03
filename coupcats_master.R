@@ -165,10 +165,10 @@ wdi_data <- wdi_data %>%
   left_join(ccodes, by = c("year", "country")) 
 check <- wdi_data %>%
   filter(if_any(everything(), is.na)) 
-  table(check$country)
-  table(check$year)
-    #check looks fine; missing 3 in normal places due to temporal coverage; other missings are due to small countries or regions
-    rm(check) 
+table(check$country)
+table(check$year)
+#check looks fine; missing 3 in normal places due to temporal coverage; other missings are due to small countries or regions
+rm(check) 
 
 # 1.3. Merging into data set. Do this twice. First for corruption by ccode/year; then for region by ccode (region doesn't vary by time)
 wdi1 <- wdi_data %>%
@@ -182,6 +182,26 @@ base_data <- base_data %>%
   left_join(wdi2, by=c("ccode"))
 rm(wdi_data, wdi1, wdi2)
 
+#Add regional dummies
+table(base_data$wdi_region)
+base_data <- base_data %>%
+  mutate(e_asia_pacific=ifelse(wdi_region=="East Asia & Pacific", 1, 0)) %>%
+  mutate(euro_cent_asia=ifelse(wdi_region=="Europe & Central Asia", 1, 0)) %>%
+  mutate(LA_carrib=ifelse(wdi_region=="Latin America & Caribbean", 1, 0)) %>%
+  mutate(MENA=ifelse(wdi_region=="Middle East & North Africa", 1, 0)) %>%
+  mutate(N_america=ifelse(wdi_region=="North America", 1, 0)) %>%
+  mutate(S_asia=ifelse(wdi_region=="South Asia", 1, 0)) %>%
+  mutate(Sub_africa=ifelse(wdi_region=="Sub-Saharan Africa", 1, 0)) %>%
+  set_variable_labels(
+    e_asia_pacific="East Asia & Pacific",
+    euro_cent_asia="Europe & Central Asia",
+    LA_carrib="Latin America & Caribbean",
+    MENA="Middle East & North Africa",
+    N_america="North America",
+    S_asia="South Asia",
+    Sub_africa="Sub-Saharan Africa") %>%
+  select(-wdi_region)
+  
 # -------------------------- Social Data ------------------------------ #
 # 1. Coup data (Powell & Thyne 2011). 
 # 1.1. Reading in data. 
@@ -193,13 +213,13 @@ coup_data <- read_delim("http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coup
 check <- coup_data %>%
   filter(ccode==lag(ccode) & year==lag(year) & month==lag(month))
 #we have 6 cases of 2 coups in the same month:
-  #Haiti, 41, 04/1989; both failed
-  #Bolivia, 145, 05/1981; both failed
-  #Argentina, 160, 12/1975; both failed
-  #Sierra Leone, 451, 03/1967; second successful
-  #Togo, 461, 10/1991; both failed
-  #Sudan, 625, 12/1966; both failed
-    #Just need to make successful in Sierra Leone trump the failed one; all others are fine because both failed
+#Haiti, 41, 04/1989; both failed
+#Bolivia, 145, 05/1981; both failed
+#Argentina, 160, 12/1975; both failed
+#Sierra Leone, 451, 03/1967; second successful
+#Togo, 461, 10/1991; both failed
+#Sudan, 625, 12/1966; both failed
+#Just need to make successful in Sierra Leone trump the failed one; all others are fine because both failed
 table(coup_data$coup)
 coup_data <- coup_data %>%
   mutate(coup=ifelse(ccode==451 & year==1967 & month==3, 2, coup))
@@ -217,9 +237,9 @@ table(coup_data$coup, coup_data$coup_attempt)
 table(coup_data$coup, coup_data$coup_successful)
 table(coup_data$coup, coup_data$coup_failed)
 #after merge, should have...
-  #487 attempts
-  #246 successful
-  #241 failed
+#487 attempts
+#246 successful
+#241 failed
 #everything above looks good; proceed...
 
 # 1.3. Merging into data set. 
@@ -234,7 +254,7 @@ base_data <- base_data %>%
 table(base_data$coup_attempt) 
 table(base_data$coup_successful) 
 table(base_data$coup_failed) 
-  #we lost one successful coup because COW doesn't recognize Oman in 1970; we're good on this; proceed...
+#we lost one successful coup because COW doesn't recognize Oman in 1970; we're good on this; proceed...
 rm(coup_data) # Keeping things clean
 
 # 1.4. Set up non-coup months to deal with autocorrelation in the analyses
@@ -254,24 +274,6 @@ base_data <- base_data %>%
   select(-sequence)
 #For above, peace years are set up ignoring success/failed; go back and re-created these if you end up wanting to analyze success/failed instead of all attempts
 
-
-
-
-
-
-###############################################################################################
-#Checked through above and ready to produce .csv and upload to github
-write.csv(base_data, "base_data.csv", row.names = FALSE)
-#Now push push the file that was just written to the working directory to github
-###############################################################################################
-
-
-
-
-
-
-
-
 # 2. Population data (World Bank Data Group 2024). 
 # 2.1. Reading in data. 
 url <- "https://extdataportal.worldbank.org/content/dam/sites/data/gender-data/data/data-gen/zip/indicator/population-number.zip"
@@ -284,74 +286,43 @@ unlink("population-data.zip")
 unlink("unzipped_data", recursive=TRUE)
 
 # 2.2. Cleaning up data. 
-popln_data <- world_bank %>%
+pop <- world_bank %>%
   filter(Indicator.Name == 'Population, total') %>%
   subset(select = c(Country.Name, Year, Value)) %>%
   rename(country = Country.Name,
          year = Year,
-         popln_tot = Value) %>% 
+         population = Value) %>% 
   left_join(ccodes, by = c("year", "country")) 
-check <- popln_data %>%
+check <- pop %>%
   filter(if_any(everything(), is.na))
-    table(check$country) #all regions or tiny countries; we're fine to drop NAs
-popln_data <- popln_data %>%
+table(check$country) #all regions or tiny countries; we're fine to drop NAs
+pop <- pop %>%
   drop_na() %>%
   select(-country)
-rm(check, world_bank)
-check <- popln_data %>%
+rm(check)
+check <- pop %>%
   distinct() #no duplicates in pop data
 check <- base_data %>%
   distinct() #no duplicates in base data
 rm(check)
+pop <- pop %>%
+  mutate(year=year+1)  %>%
+  mutate(pop=log(population)) %>%
+  set_variable_labels(
+    pop="Total pop, WDI, log, t-1"
+  ) %>%
+  select(-population)
 
 # 2.3. Merging into data set. 
 base_data <- base_data %>% 
   ungroup() %>%
-  left_join(popln_data, by = c("ccode", "year"))
-rm(popln_data)            
-
-            
-            
-base2 <- base_data2
-%>%
-  select(ccode, country, year) %>%
-  mutate(base2=1)
-            
-            
-            
-            , relationship = "many-to-many") %>%
-  filter(!(country == "St. Vincent and the Grenadines" & duplicated(paste(year, ccode)))) # For some reason, St. Vincent got weird. 
-label(emma_data$popln_tot) <- "total population" 
-rm(popln_data)
-
-# 3. Age population data (World Bank Data Group 2024).
-# 3.1. Reading in data. 
-age_popln <- world_bank %>%
-  
-  # 3.2. Cleaning up data. 
-  filter(Indicator.Name %in% c('Population ages 0-14, total',
-                               'Population ages 15-64, total',
-                               'Population ages 65 and above, total')) %>%
-  subset(select = c(Country.Name, Year, Value, Disaggregation)) %>%
-  rename(country = Country.Name,
-         year = Year,
-         age_tot = Value,
-         type = Disaggregation)
-age_popln <- age_popln %>%
-  left_join(ccodes, by = c("country", "year"), relationship = "many-to-many") %>% 
-  drop_na() %>% # NAs from non-country rows. 
-  distinct() # Random duplicates. 
-age_popln <- age_popln %>%
-  pivot_wider(names_from = type, values_from = age_tot, values_fn = first) %>%
-  rename(age0_14 = `total, 0-14`, 
-         age15_64 = `total, 15-64`,
-         age65plus = `total, 65+`) 
-
-# 3.3. Merging into data set. 
-emma_data <- emma_data %>% # No 2024 data. 
-  left_join(age_popln, by = c("country", "year", "ccode"), relationship = "many-to-many") %>%
-  distinct() # Random duplicates. 
-rm(world_bank, age_popln)
+  left_join(pop, by = c("ccode", "year"))
+rm(pop)
+check <- base_data %>%
+  filter(is.na(pop))
+histogram(check$year) #looks fine but should be able to get pop for full sample from elsewhere
+rm(check)
+rm(world_bank)
 
 # 4. Median age data (World Bank Data Group 2024)
 # 4.1. Reading in data. 
@@ -370,38 +341,21 @@ median_age <- median_age %>%
   subset(select = -c(popln_median, popln_median_est)) %>% 
   filter(year <= 2024)
 median_age <- median_age %>%
-  left_join(ccodes, by = c("country", "year")) %>%
+  mutate(year=year+1) %>% #just lagged
+  left_join(ccodes, by = c("country", "year")) 
+check <- median_age %>%
+  filter(is.na(ccode))
+table(check$country) #fine; all regions or very small countries
+rm(check)
+median_age <- median_age %>%
   drop_na() %>% # NAs from non-country rows. 
-  distinct() # Random duplicates. 
+  distinct() %>% # Random duplicates. 
+  select(-country)
 
 # 4.3. Merging into data set. 
-emma_data <- emma_data %>% 
-  left_join(median_age, by = c("country", "year", "ccode"), relationship = "many-to-many") 
+base_data <- base_data %>% 
+  left_join(median_age, by = c("ccode", "year")) 
 rm(median_age)
-
-# 5. Age expectancy data. 
-# 5.1. Reading in data. 
-url <- "https://srhdpeuwpubsa.blob.core.windows.net/whdh/DATADOT/INDICATOR/C64284D_ALL_LATEST.csv"
-age_expectancy <- read_csv(url)
-rm(url)
-
-# 5.2. Cleaning up data. 
-age_expectancy <- age_expectancy %>%
-  subset(select = c(DIM_TIME, GEO_NAME_SHORT, DIM_SEX, AMOUNT_N)) %>%
-  filter(DIM_SEX == 'TOTAL') %>%
-  rename(country = GEO_NAME_SHORT, 
-         year = DIM_TIME, 
-         age_expectancy = AMOUNT_N) %>%
-  subset(select = -c(DIM_SEX))
-age_expectancy <- age_expectancy %>%
-  left_join(ccodes, by = c("country", "year")) %>% # Missing 'Côte d'Ivoire', 'Türkiye', 'Zambia', 'Zimbabwe'
-  drop_na() %>% # NAs from non-country rows. 
-  distinct() # Random duplicates from Yemen. 
-
-# 5.3. Merging into data set. 
-emma_data <- emma_data %>% 
-  left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
-rm(age_expectancy)
 
 # ------------------------------------ Military data  ------------------------------------ #
 
@@ -410,55 +364,147 @@ rm(age_expectancy)
 url <- "https://api.worldbank.org/v2/en/indicator/MS.MIL.XPND.GD.ZS?downloadformat=excel"
 destfile <- "MS_MIL_XPND_GD.xls"
 curl::curl_download(url, destfile)
-military_exp <- read_excel(destfile, skip = 3)
+milex <- read_excel(destfile, skip = 3)
 rm(destfile, url)
 
 #1.2 Reshaping data
-military_exp <- military_exp %>%
+milex <- milex %>%
   rename( "country" = `Country Name`) %>% 
   subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`))  #removing things we don't want
-
-military_exp <- military_exp %>%
+milex <- milex %>%
   pivot_longer(
     cols = -c(country),  # Keep country-related columns fixed
     names_to = "year",  
     values_to = "military expenditure"
   ) %>%
   mutate(year = as.integer(year))  # Convert Year to integer
-label(military_exp$`military expenditure`) <- "(% of GDP)"
 
+#merge to base
+milex <- milex %>%
+  rename(milex='military expenditure') %>%
+  set_variable_labels(milex="Milit expenditure, % of GDP") %>%
+  mutate(year=year+1) #lagged
+milex <- milex %>%
+  left_join(ccodes, by=c("country", "year")) %>%
+  select(-country) %>%
+  distinct()
+base_data <- base_data %>%
+  left_join(milex, by=c("ccode", "year"))
+rm(milex)
 
 # 2.Armed forces personnel (total)
 # 2.1 Loading data
 url <- "https://api.worldbank.org/v2/en/indicator/MS.MIL.TOTL.P1?downloadformat=excel"
 destfile <- "MS_MIL_TOTL.xls"
 curl::curl_download(url, destfile)
-personnel <- read_excel(destfile, skip = 3)
+milper <- read_excel(destfile, skip = 3)
 rm(destfile, url)
 
-# 2.2 Reshaping data
-personnel <- personnel %>%
+# 2.2 Reshaping data; cleaning a bit
+milper <- milper %>%
   rename( "country" = `Country Name`) %>% 
   subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`)) #removing things we don't want
-
-personnel <- personnel %>%
+milper <- milper %>%
   pivot_longer(
     cols = -c(country),  # Keep country-related columns fixed
     names_to = "year",  
-    values_to = "personnel"
+    values_to = "milper"
   ) %>%
   mutate(year = as.integer(year))  # Convert Year to integer
-label(personnel$personnel) <- "(total)"
-
+milper <- milper %>%
+  drop_na() %>%
+  mutate(milper=log(milper+1)) %>% #just logged
+  mutate(year=year+1) %>% #just lagged
+  set_variable_labels(milper="milit personell; logged; t-1")
 
 # 3 Merging
-military_data <- military_exp %>%
-  left_join(personnel, by = c("country", "year")) %>% 
-  left_join(ccodes, by = c("country", "year")) 
-rm(military_exp, personnel) #keeping things clean
+milper <- milper %>%
+  left_join(ccodes, by=c("country", "year")) %>%
+  drop_na() %>%
+  select(-country)
+base_data <- base_data %>%
+  left_join(milper, by=c("ccode", "year"))
+rm(milper)
 
-# Checking NAs: ----- Missing Zimbabwe, Zambia, and "Turkiye" in ccodes
-check_na <- military_data %>% 
-  filter(is.na(ccode))
-unique(check_na$country)
-rm(check_na)
+###############################################################################################
+#Checked through above and ready to produce .csv and upload to github
+write.csv(base_data, "base_data.csv", row.names = FALSE)
+#Now push push the file that was just written to the working directory to github
+###############################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################################################################
+#Below is stuff we probably won't use but keeping it here just in case...
+###############################################################################################
+
+# 3. Age population data (World Bank Data Group 2024).
+# 3.1. Reading in data. 
+#age_popln <- world_bank 
+#%>%
+  
+  # 3.2. Cleaning up data. 
+#  filter(Indicator.Name %in% c('Population ages 0-14, total',
+#                               'Population ages 15-64, total',
+#                               'Population ages 65 and above, total')) %>%
+#  subset(select = c(Country.Name, Year, Value, Disaggregation)) %>%
+#  rename(country = Country.Name,
+#         year = Year,
+#         age_tot = Value,
+#         type = Disaggregation)
+#age_popln <- age_popln %>%
+#  left_join(ccodes, by = c("country", "year"), relationship = "many-to-many") %>% 
+#  drop_na() %>% # NAs from non-country rows. 
+#  distinct() # Random duplicates. 
+#age_popln <- age_popln %>%
+#  pivot_wider(names_from = type, values_from = age_tot, values_fn = first) %>%
+#  rename(age0_14 = `total, 0-14`, 
+#         age15_64 = `total, 15-64`,
+#         age65plus = `total, 65+`) 
+
+# 3.3. Merging into data set. 
+#emma_data <- emma_data %>% # No 2024 data. 
+#  left_join(age_popln, by = c("country", "year", "ccode"), relationship = "many-to-many") %>%
+#  distinct() # Random duplicates. 
+#rm(world_bank, age_popln)
+
+
+
+
+
+
+
+
+# 5. Age expectancy data. 
+# 5.1. Reading in data. 
+#url <- "https://srhdpeuwpubsa.blob.core.windows.net/whdh/DATADOT/INDICATOR/C64284D_ALL_LATEST.csv"
+#age_expectancy <- read_csv(url)
+#rm(url)
+
+# 5.2. Cleaning up data. 
+#age_expectancy <- age_expectancy %>%
+#  subset(select = c(DIM_TIME, GEO_NAME_SHORT, DIM_SEX, AMOUNT_N)) %>%
+#  filter(DIM_SEX == 'TOTAL') %>%
+#  rename(country = GEO_NAME_SHORT, 
+#         year = DIM_TIME, 
+#         age_expectancy = AMOUNT_N) %>%
+#  subset(select = -c(DIM_SEX))
+#age_expectancy <- age_expectancy %>%
+#  left_join(ccodes, by = c("country", "year")) %>% # Missing 'Côte d'Ivoire', 'Türkiye', 'Zambia', 'Zimbabwe'
+#  drop_na() %>% # NAs from non-country rows. 
+#  distinct() # Random duplicates from Yemen. 
+
+# 5.3. Merging into data set. 
+#emma_data <- emma_data %>% 
+#  left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
+#rm(age_expectancy)
