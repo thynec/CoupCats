@@ -8,129 +8,11 @@ rm(list=ls())
 #setwd("C:/Users/Camila/OneDrive/R related/R/R") # Set working file. #Camila
 setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
 
-#load packages: if needed, go in and remove # but don't forget to put it back#
-#####
-# Data Management
-#install.packages("tidyverse") # Primary package for data management
-#install.packages("readr") # Reads flat files (i.e., CSV)
-#install.packages("openxlsx") # Reads (and writes) Excel files
-#install.packages("haven") # Imports & exports SPSS, SAS, and Stata files
-#install.packages("janitor") # Cleans column names and tidies data
-#install.packages("Hmisc") # For labeling data. 
-#install.packages("pltesim") #For setting up bctcs peace year
+#load packages: if you use new packages, try to remember to add them to the packages on github. Otherwise, just flag them and I'll do it.
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R")
 
-# Data Visualization
-#install.packages("ggplot2") # Primary package for data visualization
-#install.packages("gganimate") # Creates animated plots (with ggplot2)
-#install.packages("ggfortify") # Visualizes model outputs (PCA, clustering)
-#install.packages("ggmosaic") # Creates mosaic plots
-#install.packages("ggpubr") # Enhances ggplot2 with greater details
-#install.packages("ggstance") # Horizontal geoms for ggplot2
-#install.packages("plotly") # Create interactive plots
-
-# Statistical Analysis and Modeling
-#install.packages("broom") # Tidy model outputs into data frames
-#install.packages("car") # Regression diagnostics and statistical methods
-#install.packages("DescTools") # Descriptive stats and hypothesis testing
-#install.packages("emmeans") # Estimated marginal means and model comparisons
-#install.packages("olsrr") # Linear regression diagnostics and model selection
-#install.packages("lme4") # Linear and generalized linear mixed-effects models
-#install.packages("MASS") # Various statistical models and methods
-
-# Spatial Analysis
-#install.packages("sf") # Handle spatial data and analysis
-#install.packages("spData") # Spatial datasets for use with sf
-#install.packages("terra") # Work with raster data and spatial analysis
-
-# Report Generation
-#install.packages("rmarkdown") # Dynamic report generation
-#install.packages("knitr") # Process and display R code/output in reports
-
-# Model Diagnostics and Evaluation
-#install.packages("performance") # Evaluate model performance and diagnostics
-#install.packages("DHARMa") # Residual diagnostics for GLMs
-
-# Data Summarization and Reporting
-#install.packages("gtsummary") # Summarizes regression models
-#install.packages("summarytools") # Quick summaries of your data
-#install.packages("stargazer") # Creates regression tables
-
-# Data Export and Import
-#install.packages("remotes") # #install R packages from GitHub or other sources
-
-# Miscellaneous Utilities
-#install.packages("gapminder") # Global development indicators and example data
-#install.packages("peacesciencer")  # Political science/peace studies tools
-#install.packages("rcompanion") # Companion functions for statistical tasks
-#install.packages("rgl") # 3D visualization
-#install.packages("WDI") # World Bank Worldwide Data Indicators 
-
-# Data Collection and Statistics
-#install.packages("tigerstats") # Common statistical analysis methods
-#install.packages("vcd") # Visualize categorical data using association plots
-#####
-#load libraries
-#####
-# Data Management
-library(tidyverse) # Primary package for data management
-library(readr) # Reads flat files (i.e., CSV)
-library(openxlsx) # Reads (and writes) Excel files
-library(haven) # Imports & exports SPSS, SAS, and Stata files
-library(janitor) # Cleans column names and tidies data
-library(Hmisc) # For labeling data. 
-library(readxl) # To read excel sheets.
-library(pltesim) # To set up btscs; see https://www.rdocumentation.org/packages/DAMisc/versions/1.7.2/topics/btscs
-
-# Data Visualization
-library(ggplot2) # Primary package for data visualization
-library(gganimate) # Creates animated plots (with ggplot2)
-library(ggfortify) # Visualizes model outputs (PCA, clustering)
-library(ggmosaic) # Creates mosaic plots
-library(ggpubr) # Enhances ggplot2 with greater details
-library(ggstance) # Horizontal geoms for ggplot2
-library(plotly) # Create interactive plots
-
-# Statistical Analysis and Modeling
-library(broom) # Tidy model outputs into data frames
-library(car) # Regression diagnostics and statistical methods
-library(DescTools) # Descriptive stats and hypothesis testing
-library(emmeans) # Estimated marginal means and model comparisons
-library(olsrr) # Linear regression diagnostics and model selection
-library(lme4) # Linear and generalized linear mixed-effects models
-library(MASS) # Various statistical models and methods
-
-# Spatial Analysis
-library(sf) # Handle spatial data and analysis
-library(spData) # Spatial datasets for use with sf
-library(terra) # Work with raster data and spatial analysis
-
-# Report Generation
-library(rmarkdown) # Dynamic report generation
-library(knitr) # Process and display R code/output in reports
-
-# Model Diagnostics and Evaluation
-library(performance) # Evaluate model performance and diagnostics
-library(DHARMa) # Residual diagnostics for GLMs
-
-# Data Summarization and Reporting
-library(gtsummary) # Summarizes regression models
-library(summarytools) # Quick summaries of your data
-library(stargazer) # Creates regression tables
-
-# Data Export and Import
-library(remotes) # Install R packages from GitHub or other sources
-
-# Miscellaneous Utilities
-library(gapminder) # Global development indicators and example data
-library(peacesciencer)  # Political science/peace studies tools
-library(rcompanion) # Companion functions for statistical tasks
-library(rgl) # 3D visualization
-library(WDI) # World Bank Worldwide Data Indicators 
-
-# Data Collection and Statistics
-library(tigerstats) # Common statistical analysis methods
-library(vcd) # Visualize categorical data using association plots
-#####
+#load libraries: if you add new libraries, try to remember to add them to github. Otherwise, just flag them and I'll do it.
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R")
 
 # -------------------------- Baseline Data ------------------------------ #
 
@@ -201,7 +83,7 @@ base_data <- base_data %>%
     S_asia="South Asia",
     Sub_africa="Sub-Saharan Africa") %>%
   select(-wdi_region)
-  
+
 # -------------------------- Social Data ------------------------------ #
 # 1. Coup data (Powell & Thyne 2011). 
 # 1.1. Reading in data. 
@@ -452,8 +334,8 @@ write.csv(base_data, "base_data.csv", row.names = FALSE)
 # 3.1. Reading in data. 
 #age_popln <- world_bank 
 #%>%
-  
-  # 3.2. Cleaning up data. 
+
+# 3.2. Cleaning up data. 
 #  filter(Indicator.Name %in% c('Population ages 0-14, total',
 #                               'Population ages 15-64, total',
 #                               'Population ages 65 and above, total')) %>%
