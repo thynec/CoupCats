@@ -17,6 +17,8 @@ library(ggmosaic) # Creates mosaic plots
 library(ggpubr) # Enhances ggplot2 with greater details
 library(ggstance) # Horizontal geoms for ggplot2
 library(plotly) # Create interactive plots
+library(cowplot) #ggplot add on
+library(scales) #color code significance level
 
 # Statistical Analysis and Modeling
 library(broom) # Tidy model outputs into data frames
@@ -26,6 +28,7 @@ library(emmeans) # Estimated marginal means and model comparisons
 library(olsrr) # Linear regression diagnostics and model selection
 library(lme4) # Linear and generalized linear mixed-effects models
 library(MASS) # Various statistical models and methods
+library(margins) #calculate marginal effects
 
 # Spatial Analysis
 library(sf) # Handle spatial data and analysis
@@ -44,6 +47,7 @@ library(DHARMa) # Residual diagnostics for GLMs
 library(gtsummary) # Summarizes regression models
 library(summarytools) # Quick summaries of your data
 library(stargazer) # Creates regression tables
+library(gt) #Used for regression tables
 
 # Data Export and Import
 library(remotes) # Install R packages from GitHub or other sources
