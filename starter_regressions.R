@@ -1,23 +1,11 @@
 rm(list=ls())
 #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at home
 
-#get packages
-#####
-#install.packages('aod')
-#install.packages('ggplot2')
-#install.packages('dplyr')
-#install.packages('readxl')
-#install.packages('broom')
-#####
+#load packages: if you use new packages, try to remember to add them to the packages on github. Otherwise, just flag them and I'll do it.
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R")
 
-#load libraries
-#####library(aod)
-library(ggplot2)
-library(dplyr)
-library(readxl)
-library(readr)
-library(broom)
-#####
+#load libraries: if you add new libraries, try to remember to add them to github. Otherwise, just flag them and I'll do it.
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R")
 
 #CT note to user on 03/02/25: Keep using the fake data for now, though we're close to having good data. As I get it cleaned and ready for analysis, I'll just update the .csv on the main branch and you can load it from there. Just use the following commmand...
 base_data <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/base_data.csv")
