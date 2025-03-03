@@ -11,7 +11,7 @@ source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/librar
 base_data <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/base_data.csv") #I see this note but we had already started using the real data, and I think it is reasonable to use this if we were going to use fake data anyway
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #logit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
-coup_logit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper`, data = base_data, family = 'binomial')
+coup_logit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data, family = 'binomial')
 summary(coup_logit)
 
 #probability change
