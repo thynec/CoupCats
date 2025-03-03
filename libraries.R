@@ -7,6 +7,7 @@ library(janitor) # Cleans column names and tidies data
 library(Hmisc) # For labeling data. 
 library(readxl) # To read excel sheets.
 library(pltesim) # To set up btscs; see https://www.rdocumentation.org/packages/DAMisc/versions/1.7.2/topics/btscs
+library(broom)
 
 # Data Visualization
 library(ggplot2) # Primary package for data visualization
@@ -57,3 +58,6 @@ library(WDI) # World Bank Worldwide Data Indicators
 # Data Collection and Statistics
 library(tigerstats) # Common statistical analysis methods
 library(vcd) # Visualize categorical data using association plots
+
+# Data analysis
+library(aod)
