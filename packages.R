@@ -6,6 +6,8 @@ install.packages("haven") # Imports & exports SPSS, SAS, and Stata files
 install.packages("janitor") # Cleans column names and tidies data
 install.packages("Hmisc") # For labeling data. 
 install.packages("pltesim") #For setting up bctcs peace year
+install.packages('readxl')
+install.packages('broom')
 
 # Data Visualization
 install.packages("ggplot2") # Primary package for data visualization
@@ -56,3 +58,6 @@ install.packages("WDI") # World Bank Worldwide Data Indicators
 # Data Collection and Statistics
 install.packages("tigerstats") # Common statistical analysis methods
 install.packages("vcd") # Visualize categorical data using association plots
+
+# Data analysis
+install.packages('aod')
