@@ -105,7 +105,7 @@ regime_type <- regime_type %>%
 rm(vdem)
 label(regime_type$regime_type) <- "0 = Closed autocracy, 1 = Electoral autocracy, 2 = Electoral democracy, 3 = Liberal Democracy"
 
-# 2.3 Organizing varaibles for regression 
+# 2.3 Organizing variables for regression 
 regime_type <- regime_type %>%
   mutate(
     closed_autocracy = ifelse(regime_type == 0, 1, 0),
