@@ -105,7 +105,16 @@ regime_type <- regime_type %>%
 rm(vdem)
 label(regime_type$regime_type) <- "0 = Closed autocracy, 1 = Electoral autocracy, 2 = Electoral democracy, 3 = Liberal Democracy"
 
-# 2.3. Merging into data set. 
+# 2.3 Organizing varaibles for regression 
+regime_type <- regime_type %>%
+  mutate(
+    closed_autocracy = ifelse(regime_type == 0, 1, 0),
+    electoral_autocracy = ifelse(regime_type == 1, 1, 0),
+    electoral_democracy = ifelse(regime_type == 2, 1, 0),
+    liberal_democracy = ifelse(regime_type == 3, 1, 0)
+  )
+
+# 2.4. Merging into data set. 
 base_data <- base_data %>% 
   left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
 rm(regime_type)
