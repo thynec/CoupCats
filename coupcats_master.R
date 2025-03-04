@@ -84,6 +84,33 @@ base_data <- base_data %>%
     Sub_africa="Sub-Saharan Africa") %>%
   select(-wdi_region)
 
+# 2. Regime data (V-Dem) 
+# 2.1. Reading in data. 
+url <- "https://github.com/vdeminstitute/vdemdata/raw/master/data/vdem.RData"
+destfile <- tempfile(fileext = ".RData") 
+download.file(url, destfile, mode = "wb")
+load(destfile)
+rm(destfile, url)
+
+# 2.2. Cleaning up data. 
+regime_type <- vdem %>%
+  subset(select = c(country_name, year, v2x_regime)) %>%
+  rename(country = country_name, 
+         regime_type = v2x_regime) %>%
+  filter(year >= 1950)
+regime_type <- regime_type %>% 
+  left_join(ccodes, by = c("country", "year")) %>% # NAs resulting from state-like actors, not full states.  
+  subset(select = -c(country)) %>% # To prevent future duplicated columns. 
+  drop_na() # No duplicates either! 
+rm(vdem)
+label(regime_type$regime_type) <- "0 = Closed autocracy, 1 = Electoral autocracy, 2 = Electoral democracy, 3 = Liberal Democracy"
+
+# 2.3. Merging into data set. 
+base_data <- base_data %>% 
+  left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
+rm(regime_type)
+
+
 # -------------------------- Social Data ------------------------------ #
 # 1. Coup data (Powell & Thyne 2011). 
 # 1.1. Reading in data. 
