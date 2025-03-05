@@ -57,6 +57,8 @@ library(gapminder) # Global development indicators and example data
 library(peacesciencer)  # Political science/peace studies tools
 library(rcompanion) # Companion functions for statistical tasks
 library(rgl) # 3D visualization
+library(WDI) # Loads World Bank data. 
+library(vdemdata) # Loads V-Dem data. 
 library(WDI) # World Bank Worldwide Data Indicators 
 
 # Data Collection and Statistics
