@@ -58,6 +58,7 @@ install.packages("peacesciencer")  # Political science/peace studies tools
 install.packages("rcompanion") # Companion functions for statistical tasks
 install.packages("rgl") # 3D visualization
 install.packages("WDI") # World Bank Worldwide Data Indicators 
+install.packages("vdemdata") # Loads V-Dem data. 
 
 # Data Collection and Statistics
 install.packages("tigerstats") # Common statistical analysis methods
