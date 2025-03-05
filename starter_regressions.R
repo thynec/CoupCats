@@ -253,7 +253,7 @@ plot_data <- data.frame(
 ggplot(plot_data, aes(x = observation, y = cooks_distance)) +
   geom_point() +  # Scatter plot of Cook's distances
   geom_hline(yintercept = 4 / length(probit_CooksD), linetype = "dashed", color = "red") +  # Threshold line
-  labs(x = "Observations", y = "Cook's Distance", title = "Cook's Distance Plot for Logit Model") +
+  labs(x = "Observations", y = "Cook's Distance", title = "Cook's Distance Plot for Probit Model") +
   theme_minimal()  # Optional: minimal theme for clean look
 
 
