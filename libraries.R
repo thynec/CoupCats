@@ -42,6 +42,7 @@ library(knitr) # Process and display R code/output in reports
 # Model Diagnostics and Evaluation
 library(performance) # Evaluate model performance and diagnostics
 library(DHARMa) # Residual diagnostics for GLMs
+library(lmtest) #Used for linear regression diagnostics
 
 # Data Summarization and Reporting
 library(gtsummary) # Summarizes regression models
