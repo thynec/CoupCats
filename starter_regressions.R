@@ -96,7 +96,7 @@ print(formatted_table)
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #probit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
-coup_probit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper`, data = base_data, family = binomial(link = 'probit'))
+coup_probit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data, family = binomial(link = 'probit'))
 summary(coup_probit)
 
 #predicted probabilities for probit
@@ -180,33 +180,100 @@ print(formatted_table)
 
 #-------------------------------------------------------------------------------------------------------------------
 #DIAGNOSTICS (both models)
-
-#Logit
-#pearson residuals
+#logit pearson residuals
 pearson_residuals_logit <- residuals(coup_logit, type = "pearson")
 pearson_residuals_logit
 
-#plotted pearson residuals
-#needs work
+#plotted logit pearson residuals
+# Create a data frame for plotting
+plot_data <- data.frame(
+  observation = 1:length(pearson_residuals_logit),  # X-axis: Observation indices
+  pearson_residual = pearson_residuals_logit )       # Y-axis: Pearson residuals
+
+ggplot(plot_data, aes(x = observation, y = pearson_residual)) +
+  geom_point() +  # Scatter plot
+  labs(x = "Observations", y = "Pearson Residuals", title = "Pearson Residuals Plot") +
+  theme_minimal()  # Optional: minimal theme for clean look
+
+# Find the index of the largest absolute Pearson residual
+max_residual_index <- which.max(abs(pearson_residuals_logit))
+
+# Print the index of the observation with the largest residual
+cat("The observation with the largest residual is at index:", max_residual_index, "\n")
+
 
 #find Cook's Distance (for influential outliers)
-logit_cooksD = cooks.distance(coup_logit)
+logit_CooksD = cooks.distance(coup_logit)
 
-#plotting Cook's Distance (base, need to add clarity and labels)
-#needs work
+#Logit plotting Cook's Distance (base, need to add clarity and labels)
+#Create a data frame for plotting
+plot_data <- data.frame(
+  observation = 1:length(logit_CooksD),  # X-axis: Observation indices
+  cooks_distance = logit_CooksD          # Y-axis: Cook's distances
+)
+#Make plot
+ggplot(plot_data, aes(x = observation, y = cooks_distance)) +
+  geom_point() +  # Scatter plot of Cook's distances
+  geom_hline(yintercept = 4 / length(logit_CooksD), linetype = "dashed", color = "red") +  # Threshold line
+  labs(x = "Observations", y = "Cook's Distance", title = "Cook's Distance Plot for Logit Model") +
+  theme_minimal()  # Optional: minimal theme for clean look
 
-#Probit
-#pearson residuals (preferred)
+
+
+#Probit pearson residuals (preferred)
 pearson_residuals_probit <- residuals(coup_probit, type = "pearson")
 pearson_residuals_probit
 
 #plotting pearson residuals
-#needs work 
+plot_data <- data.frame(
+  observation = 1:length(pearson_residuals_probit),  # X-axis: Observation indices
+  pearson_residual = pearson_residuals_probit )       # Y-axis: Pearson residuals
+
+#Make plot
+ggplot(plot_data, aes(x = observation, y = pearson_residual)) +
+  geom_point() +  # Scatter plot
+  labs(x = "Observations", y = "Pearson Residuals", title = "Pearson Residuals Plot") +
+  theme_minimal()  # Optional: minimal theme for clean look 
+# Find the index of the largest absolute Pearson residual
+max_residual_index <- which.max(abs(pearson_residuals_probit))
+
+# Print the index of the observation with the largest residual
+cat("The observation with the largest residual is at index:", max_residual_index, "\n")
+
 
 #find Cook's Distance (for influential outliers)
-probit_cooksD = cooks.distance(coup_probit)
+probit_CooksD = cooks.distance(coup_probit)
 
-#plotting Cook's Distance (base, need to add clarity and labels)
-#needs work
+#probit plotting Cook's Distance (base, need to add clarity and labels)
+plot_data <- data.frame(
+  observation = 1:length(probit_CooksD),  # X-axis: Observation indices
+  cooks_distance = probit_CooksD          # Y-axis: Cook's distances
+)
+#Make plot
+ggplot(plot_data, aes(x = observation, y = cooks_distance)) +
+  geom_point() +  # Scatter plot of Cook's distances
+  geom_hline(yintercept = 4 / length(probit_CooksD), linetype = "dashed", color = "red") +  # Threshold line
+  labs(x = "Observations", y = "Cook's Distance", title = "Cook's Distance Plot for Logit Model") +
+  theme_minimal()  # Optional: minimal theme for clean look
+
+
+
+
+
+
+#multicollinearity (probit and logit) >10 have a problem 
+vif(coup_logit)
+vif(coup_probit)
+
+#heteroscedasticity test (check in OLS)
+#run linear model 
+OLS_coup <- lm(coup_attempt ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data)
+summary(OLS_coup)
+
+#Breusch-Pagan test, if significant, heteroscedasticity probable in MLE model, further testing (hetprobit)
+bptest(OLS_coup)
+
+
+
 
 #Other diagnositc tests need adding
