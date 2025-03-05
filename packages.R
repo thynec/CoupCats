@@ -41,7 +41,8 @@ install.packages("knitr") # Process and display R code/output in reports
 
 # Model Diagnostics and Evaluation
 install.packages("performance") # Evaluate model performance and diagnostics
-install.packages("DHARMa") # Residual diagnostics for GLMs
+install.packages("DHARMa") # Residual diagnostics for GLMss
+install.packages("lmtest") #Linear regression diagnostics
 
 # Data Summarization and Reporting
 install.packages("gt") #used for regression tables
