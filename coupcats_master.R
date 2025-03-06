@@ -25,6 +25,82 @@ curl::curl_download(url, destfile)
 ccodes <- read_excel(destfile)
 rm(url, destfile)
 
+# -------------------------- V-Dem Data ------------------------------ #
+
+# 1. V-Dem data. 
+# 1.1. Reading in data. 
+vdem <- vdem # Code looks strange, but it works. 
+
+'The V-Dem dataset does not cover some countries, namely: 
+  Andorra, Antigua and Barbuda, Bahamas, Belize, Brunei, Dominica, 
+  Federated States of Micronesia, Grenada, Kiribati, Liechtenstein, 
+  Marshall Islands, Monaco, Nauru, Palau, Saint Kitts and Nevis, 
+  Saint Lucia, Saint Vincent and the Grenadines, Samoa, San Marino, 
+  Tonga, Tuvalu, and the Vatican.'
+
+# 1.2. Cleaning up data. 
+vdem <- vdem %>%
+  subset(select = c(country_name, # Country. 
+                    e_regionpol_6C, # Region. 
+                    year, # Year. 
+                    v2x_regime, # Regime type. 
+                    v2x_execorr, # Executive corruption index.
+                    v2x_jucon, # Judicial constraints on the executive index ordinal
+                    v2x_corr, # Political corruption. 
+                    v2smpolsoc, # Polarization of society. 
+                    v2cagenmob, # Mass mobilization. 
+                    v2x_civlib, # Civil liberties. 
+                    v2x_rule, # Rule of law. 
+                    v2xcs_ccsi, # Core civil society index. 
+                    v2x_genpp, # Women political participation index. 
+                    v2x_gender, # Women political empowerment index. 
+                    v2x_gencl, # Women civil liberties.
+                    e_pelifeex, # Life expectancy. 
+                    e_gdp, # GDP. 
+                    e_gdppc, # GDPPC. 
+                    e_miinflat, # Inflation rate. 
+                    e_cow_exports, # Exports. 
+                    e_cow_imports, # Imports. 
+                    v2smgovshut, # Government Internet shut down in practice.
+                    v2smgovfilprc, # Government  Internet filtering in practice, 
+                    v2smfordom)) # Foreign governments dissemination of false information. 
+
+'Assume these columns are clear of NAs unless stated otherwise.'
+
+vdem <- vdem %>%
+  rename(country = country_name,
+         region = e_regionpol_6C,
+         year = year, 
+         regime = v2x_regime, # No 1990 for Kazakhstan or Turkmenistan: both gained independence in 1991
+         exec_corr = v2x_execorr, # No data between 1950-2000 for Timor-Leste: gained independence in 2000. 
+         jud_const = v2x_jucon, # Ditto Timor-Leste; No 1950-2001 for Bahrain, current government established in 2002.
+         pol_corr = v2x_corr, # Ditto Timor-Leste & Bahrain. 
+         soc_polar = v2smpolsoc, # Between 2000 to 2023 (no other NAs).
+         mass_mobil = v2cagenmob, # No Iceland, Papua New Guinea (2021-2023), Afghanistan (1950-1999), Vietnam (1950-1975), South Yemen (1950-1990). 
+         law_rule = v2x_rule, # Ditto Timor-Leste. 
+         civ_soc = v2xcs_ccsi, 
+         wom_polpart = v2x_genpp, # Lots of issues... run: na_df <- vdem[is.na(vdem$wom_polpart), , drop = FALSE]
+         women_polemp = v2x_gender, # Run: na_df <- vdem[is.na(vdem$v2x_gender), , drop = FALSE]
+         wom_civlib = v2x_gencl, # No issues--could replace wom_polpart and women_polemp 
+         life_exp = e_pelifeex, # Between 1800 to 2022; missing South Yemen, Republic of Vietnam (1950-75), Kosovo, German Democratic Republic, Palestine/Gaza, Somaliland, Hong Kong, Zanzibar 
+         gdp = e_gdp, # Between 1789 to 2019... good for past data, might need something else for current data. 
+         gdppc = e_gdppc, # Ditto GDP. 
+         infla_rate = e_miinflat, # Ditto GDP. 
+         exports = e_cow_exports, # Between 1870 to 2014.
+         imports = e_cow_imports, # Between 1870 to 2014.
+         int_shutdown = v2smgovshut, # Between 2000 to 2023... can likely code this to be 0 for previous years. 
+         int_censor = v2smgovfilprc, # Between 2000 to 2023.
+         forgov_misinfo = v2smfordom) %>% # Between 2000 to 2023.
+  filter(year >= 1950)
+vdem <- vdem %>% # Merging in ccodes. 
+  left_join(ccodes, by = c("year", "country")) %>%
+  select(ccode, everything()) %>%
+  subset(select = -c(country))
+
+# 1.3. Merging into data set. 
+base_data <- base_data %>% 
+  left_join(vdem, by = c("ccode", "year")) # No duplicates. 
+
 # -------------------------- Political Data ------------------------------ #
 
 # 1. Perceptions of Corruption (Transparency International, Corruption Perceptions Index). 
