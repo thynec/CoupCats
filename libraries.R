@@ -14,6 +14,7 @@ library(readxl) # To read excel sheets.
 library(pltesim) # To set up btscs; see https://www.rdocumentation.org/packages/DAMisc/versions/1.7.2/topics/btscs
 library(broom)
 library(pltesim) # add pce years for temporal ind; implementing btscs
+library(data.table) # helps bring in zipped csv
 
 # Data Visualization
 library(ggplot2) # Primary package for data visualization
