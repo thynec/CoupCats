@@ -1,3 +1,6 @@
+#Data sources
+library(vdemdata) #Vdem
+
 # Data Management
 library(tidyverse) # Primary package for data management
 library(readr) # Reads flat files (i.e., CSV)
