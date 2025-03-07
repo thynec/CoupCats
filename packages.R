@@ -1,5 +1,6 @@
 #Data Sources
 devtools::install_github("vdeminstitute/vdemdata") #brings in Vdem Data
+install.packages("WDI") #World Development Indicators; World Bank
 
 # Data Management
 install.packages("tidyverse") # Primary package for data management
