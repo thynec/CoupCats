@@ -3,12 +3,15 @@ rm(list=ls())
 
 #load packages: if you use new packages, try to remember to add them to the packages on github. Otherwise, just flag them and I'll do it.
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R")
+setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 
 #load libraries: if you add new libraries, try to remember to add them to github. Otherwise, just flag them and I'll do it.
-source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") #will add to master script after this one
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") #will add to master script after this one
 
-#CT note to user on 03/02/25: Keep using the fake data for now, though we're close to having good data. As I get it cleaned and ready for analysis, I'll just update the .csv on the main branch and you can load it from there. Just use the following commmand...
-base_data <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/base_data.csv") #I see this note but we had already started using the real data, and I think it is reasonable to use this if we were going to use fake data anyway
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/main/base_data.csv.gz"
+base_data <- fread(url)
+rm(url)
+
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #logit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
 coup_logit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data, family = 'binomial')
