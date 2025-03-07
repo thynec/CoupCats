@@ -1,5 +1,6 @@
 #Data sources
 library(vdemdata) #Vdem
+library(WDI) #World Development Indicators; World Bank
 
 # Data Management
 library(tidyverse) # Primary package for data management
