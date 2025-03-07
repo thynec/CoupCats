@@ -9,8 +9,8 @@ source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/step1.
 
 # -------------------------- V-Dem Data ------------------------------ #
 
-# 0. V-Dem data. 
-# 0.1. Reading in data. 
+# V-Dem data. 
+# Reading in data. 
 vdem <- vdem 
 
 'The V-Dem dataset does not cover some countries, namely: 
@@ -20,7 +20,7 @@ vdem <- vdem
   Saint Lucia, Saint Vincent and the Grenadines, Samoa, San Marino, 
   Tonga, Tuvalu, and the Vatican.'
 
-# 0.2. Cleaning up data. 
+# Cleaning up data. 
 vdem <- vdem %>%
   subset(select = c(country_name, # Country. 
                     e_regionpol_6C, # Region. 
@@ -78,6 +78,45 @@ vdem <- vdem %>%
 vdem <- vdem %>% # Merging in ccodes. 
   left_join(ccodes, by = c("year", "country")) %>%
   filter(!is.na(ccode)) # Non-state actors. 
+
+# GDPPC (e_gdppc). 
+# Cleaning data. 
+vdem_gdppc <- vdem %>%
+  subset(select = c(country, ccode, year, gdppc)) %>%
+  rename(vdem_gdppc = gdppc,
+         c_merge = country) 
+base_data <- base_data %>%
+  left_join(vdem_gdppc, by = c("ccode", "year"))
+check <- base_data %>% 
+  subset(select = c(country, c_merge, year)) %>%
+  distinct() %>%
+  filter(country!=c_merge)
+rm(check) # All good. 
+base_data <- base_data %>%
+  subset(select = -c(c_merge))
+rm(vdem_gdppc)
+
+# Reading in WDI. 
+wdi_gdppc <- WDI(country = "all",
+                 indicator = "NY.GDP.PCAP.CD", 
+                 start = 1960, 
+                 end = 2024,
+                 extra = TRUE)
+wdi_gdppc <- wdi_gdppc %>%
+  subset(select = c(country, year, NY.GDP.PCAP.CD)) %>%
+  rename(wdi_gdppc = NY.GDP.PCAP.CD) %>%
+  left_join(ccodes, by = c("year", "country")) %>%
+  rename(c_merge = country)
+base_data <- base_data %>%
+  left_join(wdi_gdppc, by = c("ccode", "year")) 
+check <- base_data %>% 
+  subset(select = c(country, c_merge)) %>%
+  distinct() %>%
+  filter(country!=c_merge)
+rm(check) # All good. 
+base_data <- base_data %>%
+  subset(select = -c(c_merge))
+rm(wdi_gdppc)
 
 # 1. Regime type (v2x_polyarchy). 
 vdem_regime2 <- vdem %>% 
