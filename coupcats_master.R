@@ -484,7 +484,7 @@ rm(milper)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
-write.csv(base_data, "base_data.csv", row.names = FALSE)
+write.csv(base_data, gzfile("base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################
 
