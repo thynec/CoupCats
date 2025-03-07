@@ -1,3 +1,6 @@
+#Data Sources
+devtools::install_github("vdeminstitute/vdemdata") #brings in Vdem Data
+
 # Data Management
 install.packages("tidyverse") # Primary package for data management
 install.packages("readr") # Reads flat files (i.e., CSV)
