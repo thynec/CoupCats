@@ -14,6 +14,8 @@ install.packages("pltesim") #For setting up bctcs peace year
 install.packages('readxl')
 install.packages('broom')
 install.packages("pltesim") #add pce years for temporal ind; implementing btscs
+install.packages("R.utils") # helps bring in zipped .csv
+install.packages("data.table") # helps bring in zipped .csv
 
 # Data Visualization
 install.packages("ggplot2") # Primary package for data visualization
