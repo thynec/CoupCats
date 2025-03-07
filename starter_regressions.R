@@ -23,6 +23,14 @@ mfxL <- margins(coup_logit, type = 'response') #marginal effects
 summary(mfxL) # R rounds to 0
 print(mfxL, digits = 6) # do this to see actual values
 
+# Calculate DFBETAs
+dfbetas_values <- dfbetas(coup_logit)
+
+# Find observations with any DFBETA greater than 2/sqrt(n) in absolute value. Can change to 2 for basic threshold
+influential_obs <- apply(abs(dfbetas_values), 1, function(x) any(x > 2/sqrt(length(base_data))))
+
+# Display influential observations
+which(influential_obs)
 
 
 # Logit table using GT, error message on color scale, fix rounding and which "statistic"
@@ -108,6 +116,14 @@ mfxP <- margins(coup_probit) #marginal efffects
 summary(mfxP) # R rounds to 0
 print(mfxP, digits = 6) # do this to see actual values
 
+# Calculate DFBETAs
+dfbetas_values <- dfbetas(coup_probit)
+
+# Find observations with any DFBETA greater than 2/sqrt(n) in absolute value. Can change to 2 for basic threshold
+influential_obs <- apply(abs(dfbetas_values), 1, function(x) any(x > 2/sqrt(length(base_data))))
+
+# Display influential observations
+which(influential_obs)
 
 
 
