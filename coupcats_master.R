@@ -431,7 +431,7 @@ write.csv(base_data, "base_data.csv", row.names = FALSE)
 # Source the interpolation functions script
 source("interpolation_functions.R")
 
-# Load your dataset
+# Load the dataset
 url <- "https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/base_data.csv"
 df <- read.csv(url)
 
