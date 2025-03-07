@@ -13,6 +13,7 @@ install.packages("labelled") # For labeling data.
 install.packages("pltesim") #For setting up bctcs peace year
 install.packages('readxl')
 install.packages('broom')
+install.packages("pltesim") #add pce years for temporal ind; implementing btscs
 
 # Data Visualization
 install.packages("ggplot2") # Primary package for data visualization
