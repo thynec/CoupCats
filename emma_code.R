@@ -137,6 +137,18 @@ base_data <- base_data %>% # Ultimately, we are losing Czechoslovakia and the Ge
   filter(!(ccode == "315"))
 rm(vdem_regime2)
 
+# Interpolating by WDI. 
+base_data <- base_data %>%
+  select(country, ccode, year, vdem_gdppc, wdi_gdppc) %>%
+  distinct() %>%
+  mutate(change=(wdi_gdppc-lag(wdi_gdppc))) %>%
+  mutate(now=vdem_gdppc) %>%
+  mutate(perc_change=change/lag(wdi_gdppc)) %>%
+  mutate(gdppc=ifelse(is.na(now), lag(now)*perc_change+lag(vdem_gdppc), now)) %>%
+  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
+  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
+  subset(select = -c(wdi_gdppc, vdem_gdppc, change, now, perc_change))
+
 # 2. Regime type (v2x_regime). 
 vdem_regime <- vdem %>% 
   subset(select = c(country, ccode, year, regime)) %>%
