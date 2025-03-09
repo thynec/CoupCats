@@ -3,19 +3,22 @@
 #------------------------------------------------------------------------------------------------#  
 
 #Building domestic economic variables
+
 #Priority vars:
-#wealth
-#change in wealth over time
-#economic inequality
+#wealth - COMPLETED
+#change in wealth over time - COMPLETED
+
 #Secondary vars:
-#inflation (probably CPI)
-#resources (see Powell/Schiel/Hammou J. Global Sec Studies, 2021; Lango/Bell/Wolford Intl Interactions 2022)
+#economic inequality - NEEDED
+#inflation (probably CPI) - NEEDED
+#resources (see Powell/Schiel/Hammou J. Global Sec Studies, 2021; Lango/Bell/Wolford Intl Interactions 2022) - NEEDED
 
 #1. clear all
   rm(list = ls())
 #2. set working directory
   #setwd("~/R/coupcats") # Set working file. 
   #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+  #setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
   #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -23,11 +26,9 @@
 #5. build baseline
   source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
 
-#------------------------------------------------------------------------------------------------#
-#put all new/revised coding below
 #------------------------------------------------------------------------------------------------#  
-
 #bring in all vdem relevant data; clean it up
+  #------------------------------------------------------------------------------------------------#  
 #####
 
   
@@ -95,7 +96,10 @@
 #####
 #end bringing in Vdem, cleaning it up
 
-#building gdp/cap measure; already lagged
+#------------------------------------------------------------------------------------------------#      
+#building gdp/cap measure
+#------------------------------------------------------------------------------------------------#      
+#start with Vdem; already lagged from above
   vdem_gdppc <- vdem %>%
     subset(select = c(country, ccode, year, gdppc)) %>%
     rename(vdem_gdppc = gdppc,
@@ -109,9 +113,8 @@
   rm(check) # All good. 
   base_data <- base_data %>%
     subset(select = -c(c_merge))
-  rm(vdem_gdppc)
-  
-  # Reading in WDI. 
+  rm(vdem_gdppc, vdem)
+#Now deal with WDI
   wdi_gdppc <- WDI(country = "all",
                    indicator = "NY.GDP.PCAP.CD", 
                    start = 1960, 
@@ -133,34 +136,53 @@
   base_data <- base_data %>%
     subset(select = -c(c_merge))
   rm(wdi_gdppc)
-  
-  # 1. Regime type (v2x_polyarchy). 
-  vdem_regime2 <- vdem %>% 
-    subset(select = c(country, ccode, year, regime2)) %>% 
-    filter(!(country == "Kazakhstan" & year == 1990)) %>% # Kazakhstan became independent this year.
-    filter(!(country == "Turkmenistan" & year == 1990)) %>% # Turkmenistan became independent this year. 
-    subset(select = -c(country))
-  base_data <- base_data %>% 
-    left_join(vdem_regime2, by = c("ccode", "year")) %>%
-    filter(!(ccode %in% c(232, 58, 31, 80, 835, 54, 987, 55, 946, 223, 
-                          983, 221, 970, 986, 60, 56, 57, 990, 331, 955,
-                          947))) %>%
-    filter(!(ccode == "471" & year == 1960)) %>% # Cameroon became independent this year. 
-    filter(!(ccode == "678" & year <= 1991)) %>% # Yemen unified in 1991. 
-    filter(year < 2024) 
-  base_data <- base_data %>% # Ultimately, we are losing Czechoslovakia and the German Federal Republic. 
-    filter(!(ccode == "260")) %>%
-    filter(!(ccode == "315"))
-  rm(vdem_regime2)
-  
-  # Interpolating by WDI. 
-  base_data <- base_data %>%
+#Splicing vdem+wdi for full years
+  df <- base_data %>%
     select(country, ccode, year, vdem_gdppc, wdi_gdppc) %>%
-    distinct() %>%
+    distinct()
+  df <- df %>%
+    group_by(ccode) %>%
+    arrange(ccode, year) %>%
     mutate(change=(wdi_gdppc-lag(wdi_gdppc))) %>%
     mutate(now=vdem_gdppc) %>%
     mutate(perc_change=change/lag(wdi_gdppc)) %>%
     mutate(gdppc=ifelse(is.na(now), lag(now)*perc_change+lag(vdem_gdppc), now)) %>%
     mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
     mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
-    subset(select = -c(wdi_gdppc, vdem_gdppc, change, now, perc_change))
+    mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) 
+  check <- df %>%
+    filter(year>2020)
+  cor(check$gdppc, check$wdi_gdppc, use="complete.obs") #looks good
+  rm(check)
+  hist(df$gdppc) #need to log
+  df <- df %>%
+    mutate(lgdppcl=log(gdppc))
+  hist(df$gdppc) #looks good
+  df <- df %>%
+    select(ccode, year, gdppc, lgdppcl)
+#create % change in gdp/cap using non-logged data
+  df <- df %>%
+    group_by(ccode) %>%
+    arrange(ccode, year) %>%
+    mutate(ch_gdppcl=((gdppc-lag(gdppc))/lag(gdppc))) %>% #huge range but seems legit
+    select(-gdppc)
+#merge to base
+  base_data <- base_data %>%
+    select(-vdem_gdppc, -wdi_gdppc) %>%
+    left_join(df, by=c("ccode", "year")) %>%
+    set_variable_labels(
+      lgdppcl="GDP/cap, WDI+vdem, t-1, log",
+      ch_gdppcl="%ch GDP/cap, WDI+vdem, t-1")
+  rm(df)  
+  
+  
+###############################################################################################
+#Checked through above and ready to produce .csv and upload to github
+#clean up if needed and export
+write.csv(base_data, gzfile("2.b.base_data.csv.gz"), row.names = FALSE)
+#Now push push the file that was just written to the working directory to github
+###############################################################################################  
+  
+  
+  
+  
