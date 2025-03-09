@@ -1,19 +1,77 @@
-rm(list=ls())
-#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at home
+#------------------------------------------------------------------------------------------------#
+#Front-end stuff
+#------------------------------------------------------------------------------------------------#  
 
-#load packages: if you use new packages, try to remember to add them to the packages on github. Otherwise, just flag them and I'll do it.
-#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R")
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#Building final dataset; running analyses
 
-#load libraries: if you add new libraries, try to remember to add them to github. Otherwise, just flag them and I'll do it.
-#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") #will add to master script after this one
+#1. clear all
+  rm(list = ls())
+#2. set working directory
+  #setwd("~/R/coupcats") # Set working file. 
+  #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+  #setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#3. install packages
+  #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
+#4. load libraries
+  #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
 
-url <- "https://raw.githubusercontent.com/thynec/CoupCats/main/base_data.csv.gz"
-base_data <- fread(url)
+#------------------------------------------------------------------------------------------------#
+#merge DFs together
+#------------------------------------------------------------------------------------------------#
+
+#2.a.domestic political
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.a.base_data.csv.gz"
+base_data.2a <- fread(url)
 rm(url)
+#2.b.domestic economic
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.b.base_data.csv.gz"
+base_data.2b <- fread(url)
+rm(url)
+#2.c.political instability
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.c.base_data.csv.gz"
+base_data.2c <- fread(url)
+rm(url)
+#2.d.military variables
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.d.base_data.csv.gz"
+base_data.2d <- fread(url)
+rm(url)
+#2.e.international variables
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.e.base_data.csv.gz"
+base_data.2e <- fread(url)
+rm(url)
+
+base_data <- base_data.2a
+  rm(base_data.2a)
+base_data.2b <- base_data.2b %>%
+  select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+base_data <- base_data %>%
+  left_join(base_data.2b, by=c("ccode", "year", "month"))
+  rm(base_data.2b)
+base_data.2c <- base_data.2c %>%
+  select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+base_data <- base_data %>%
+  left_join(base_data.2c, by=c("ccode", "year", "month"))
+rm(base_data.2c)    
+base_data.2d <- base_data.2d %>%
+  select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+base_data <- base_data %>%
+  left_join(base_data.2d, by=c("ccode", "year", "month"))
+rm(base_data.2d)    
+base_data.2e <- base_data.2e %>%
+  select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+base_data <- base_data %>%
+  left_join(base_data.2e, by=c("ccode", "year", "month"))
+rm(base_data.2e)
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #logit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
+
+coup_logit <- glm(coup_attempt ~ 
+                    lgdppcl + ch_gdppcl + cw + pres_elec_lag + polyarchy + polyarchy2 + pce + pce2 + pce3, 
+                      data = base_data, family = 'binomial')
+summary(coup_logit)
+
+
 coup_logit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data, family = 'binomial')
 summary(coup_logit)
 
