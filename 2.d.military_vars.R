@@ -3,8 +3,10 @@
 #------------------------------------------------------------------------------------------------#  
 
 #Building military-related variables
+
 #Priority vars:
   #military quality (milex/milper)
+
 #Secondary vars:
   #counterbalancing
   #civil-military data from Narang/Talmadge 2017
@@ -18,6 +20,7 @@
 #2. set working directory
   #setwd("~/R/coupcats") # Set working file. 
   #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+  #setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
   #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -28,7 +31,17 @@
 #------------------------------------------------------------------------------------------------#
 #put all new/revised coding below
 #------------------------------------------------------------------------------------------------#  
-  
+
+#------------------------------------------------------------------------------------------------#  
+#milex, milper info from peacesciencer
+#------------------------------------------------------------------------------------------------#  
+
+
+
+
+
+
+
 # ------------------------------------ Military data  ------------------------------------ #
 
 # 1.Military expenditure (% of GDP)
@@ -97,13 +110,17 @@ milper <- milper %>%
 base_data <- base_data %>%
   left_join(milper, by=c("ccode", "year"))
 rm(milper)  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+###############################################################################################
+#Checked through above and ready to produce .csv and upload to github
+#clean up if needed and export
+write.csv(base_data, gzfile("2.d.base_data.csv.gz"), row.names = FALSE)
+#Now push push the file that was just written to the working directory to github
+###############################################################################################  
+
+
+
