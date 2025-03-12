@@ -1,6 +1,7 @@
 #Data sources
 library(vdemdata) #Vdem
 library(WDI) #World Development Indicators; World Bank
+devtools::install_github("svmiller/peacesciencer") #peacesciencer
 
 # Data Management
 library(tidyverse) # Primary package for data management
