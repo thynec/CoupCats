@@ -2,6 +2,7 @@
 install.packages("devtools")
 devtools::install_github("vdeminstitute/vdemdata") #brings in Vdem Data
 install.packages("WDI") #World Development Indicators; World Bank
+install.packages("peacesciencer") #several indicators for intl vars
 
 # Data Management
 install.packages("tidyverse") # Primary package for data management
