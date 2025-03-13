@@ -7,7 +7,7 @@
 #Priority vars:
   #elections - COMPLTED
   #regime type - COMPLETED
-  #military regime dummy (from reign)  - COMPLETED
+  #military regime dummy (from reign)  - NEEDS SOME WORK
 
 #Secondary vars:
   #Refined elections (updated w/ reign protocol) - NEEDED
