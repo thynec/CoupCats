@@ -5,15 +5,15 @@
 #Building final dataset; running analyses
 
 #1. clear all
-  rm(list = ls())
+rm(list = ls())
 #2. set working directory
-  #setwd("~/R/coupcats") # Set working file. 
-  #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-  #setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("~/R/coupcats") # Set working file. 
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
-  #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
-  #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
 
 #------------------------------------------------------------------------------------------------#
 #merge DFs together
@@ -41,12 +41,12 @@ base_data.2e <- fread(url)
 rm(url)
 
 base_data <- base_data.2a
-  rm(base_data.2a)
+rm(base_data.2a)
 base_data.2b <- base_data.2b %>%
   select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2b, by=c("ccode", "year", "month"))
-  rm(base_data.2b)
+rm(base_data.2b)
 base_data.2c <- base_data.2c %>%
   select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
 base_data <- base_data %>%
@@ -67,8 +67,13 @@ rm(base_data.2e)
 #logit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
 
 coup_logit <- glm(coup_attempt ~ 
-                    lgdppcl + ch_gdppcl + cw + pres_elec_lag + polyarchy + polyarchy2 + pce + pce2 + pce3, 
-                      data = base_data, family = 'binomial')
+                    pres_elec_lag + polyarchy + polyarchy2 + #2.a. domestic political
+                    lgdppcl + ch_gdppcl + #2.b. domestic economic
+                    cw + #2.c. political instability
+                    #NEED military vars here
+                    cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                    pce + pce2 + pce3, #autocorrelation vars
+                  data = base_data, family = 'binomial')
 summary(coup_logit)
 
 
