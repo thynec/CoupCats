@@ -78,6 +78,34 @@ rm(list = ls())
     set_variable_labels(cw="3-4 types from UCDP, t-1") %>%
     select(-mcountry)
 
+# -------------------------- Political Stability (From World Bank) ----------------------------- #
+#1.1 Getting the data
+url <- "https://api.worldbank.org/v2/en/indicator/PV.EST?downloadformat=excel"
+destfile <- "PV.xls"
+curl::curl_download(url, destfile)
+stability <- read_excel(destfile, skip = 3)
+rm(destfile, url)
+
+#1.2 Reshaping data
+stability <- stability %>%
+  rename( "country" = `Country Name`) %>% 
+  subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`))  #removing things we don't want
+stability <- stability %>%
+  pivot_longer(
+    cols = -c(country),  # Keep country-related columns fixed
+    names_to = "year",  
+    values_to = "stability"
+  ) %>%
+  mutate(year = as.integer(year))  # Convert Year to integer
+
+#1.3 Merging to base_data
+stability <- stability %>%
+  left_join(ccodes, by=c("country", "year")) %>%
+  dplyr::select(-country) %>%
+  distinct()
+base_data <- base_data %>%
+  left_join(stability, by=c("ccode", "year"))
+rm(stability)
 
 
   ###############################################################################################
