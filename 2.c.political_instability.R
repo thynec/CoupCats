@@ -121,26 +121,40 @@ base_data <- base_data %>%
   left_join(stability, by=c("ccode", "year"))
 rm(stability)
 
-# Mass mobilization (V-Dem). 
-# 1.1. Pulling in data. 
-vdem_og <- vdem
-vdem <- vdem_og
-rm(vdem_og)
+# -------------------------- Mass Mobilization (V-Dem) ----------------------------- #
 
-# 1.2. Cleaning up data. 
-vdem <- vdem %>%
+# Bringing in data. 
+vdem_data <- vdem
+
+# Cleaning up data. 
+vdem_data <- vdem %>%
   subset(select = c(country_name, # Country. 
                     year, # Year. 
-                    v2cagenmob, # Mass mobilization.
-                    v2caconmob)) %>% # Mass mobilization concentration (dist from capital). 
+                    v2cagenmob, # Mass mobilization (ordinal, converted to interval; Z-score). 
+                    v2caconmob)) %>% # Mass mobilization concentration (ordinal, converted to interval; Z-score). 
   rename(country = country_name,
          year = year, 
          mobilization = v2cagenmob,
-         mobil_concentration = v2caconmob) %>% 
+         mobil_conc = v2caconmob) %>% 
   mutate(year=year+1) %>% # Just lagged. 
-  filter(year >= 1950) %>% 
-  mutate(mobil_norm = (mobilization + 4)/2, # [-4,4] → [0,4].
-         mobilconc_norm = (mobil_concentration + 3)/3)  # [-3,3] → [0,3]
+  filter(year >= 1950) 
+vdem_data <- vdem_data %>% # Merging in ccodes. 
+  left_join(ccodes, by = c("year", "country")) %>% # No Republic of Vietnam (1950-76), Afghanistan (1950-2000), Guinea-Bissau (1950-2005), Laos (2024), Iceland (1950-2019)
+  drop_na()
+
+# Merging into data set. 
+vdem_data <- vdem_data %>%
+  rename(mcountry = country)
+base_data <- base_data %>%
+  left_join(vdem_data, by=c("ccode", "year"))
+check <- base_data %>%
+  filter(mcountry!=country) %>%
+  select(country, mcountry) %>%
+  distinct() 
+View(check) # Looks good. 
+rm(check, vdem_data)
+base_data <- base_data %>%
+  select(-mcountry)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
