@@ -79,9 +79,9 @@ summary(coup_logit)
 
 #get predicted probabilities; pr(coup within X months)...
   base_data$yhat <- predict(coup_logit, type="response")
-  base_data$expected_12 <- 12*base_data$yhat #this is the pr(at least 1 coup in the next 12 months)
-  
-  
+  base_data <- base_data %>%
+    mutate(pr12=1-(1-yhat)^12) %>%
+    set_variable_labels(pr12="pr(at least 1 coup) in next 12 months")
   
 
 
