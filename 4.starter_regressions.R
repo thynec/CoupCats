@@ -73,8 +73,18 @@ coup_logit <- glm(coup_attempt ~
                     #NEED military vars here
                     cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                     pce + pce2 + pce3, #autocorrelation vars
-                  data = base_data, family = 'binomial')
+                  data = base_data, family = 'binomial', na.action=na.exclude)
 summary(coup_logit)
+
+
+#get predicted probabilities; pr(coup within X months)...
+  base_data$yhat <- predict(coup_logit, type="response")
+  base_data$expected_12 <- 12*base_data$yhat #this is the pr(at least 1 coup in the next 12 months)
+  
+  
+  
+
+
 
 
 coup_logit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data, family = 'binomial')
