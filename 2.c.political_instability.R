@@ -121,6 +121,26 @@ base_data <- base_data %>%
   left_join(stability, by=c("ccode", "year"))
 rm(stability)
 
+# Mass mobilization (V-Dem). 
+# 1.1. Pulling in data. 
+vdem_og <- vdem
+vdem <- vdem_og
+rm(vdem_og)
+
+# 1.2. Cleaning up data. 
+vdem <- vdem %>%
+  subset(select = c(country_name, # Country. 
+                    year, # Year. 
+                    v2cagenmob, # Mass mobilization.
+                    v2caconmob)) %>% # Mass mobilization concentration (dist from capital). 
+  rename(country = country_name,
+         year = year, 
+         mobilization = v2cagenmob,
+         mobil_concentration = v2caconmob) %>% 
+  mutate(year=year+1) %>% # Just lagged. 
+  filter(year >= 1950) %>% 
+  mutate(mobil_norm = (mobilization + 4)/2, # [-4,4] → [0,4].
+         mobilconc_norm = (mobil_concentration + 3)/3)  # [-3,3] → [0,3]
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
