@@ -5,6 +5,7 @@ devtools::install_github("svmiller/peacesciencer") #peacesciencer
 
 # Data Management
 library(tidyverse) # Primary package for data management
+library(dplyr)
 library(readr) # Reads flat files (i.e., CSV)
 library(openxlsx) # Reads (and writes) Excel files
 library(haven) # Imports & exports SPSS, SAS, and Stata files
