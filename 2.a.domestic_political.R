@@ -33,7 +33,69 @@
 #------------------------------------------------------------------------------------------------#  
   #####
   
+  #------------------------------------------------------------------------------------------------#
+#Regime type (v2x_regime); from Vdem
+#------------------------------------------------------------------------------------------------#  
   
+#Reading in data. Cleaning it up.
+  regime_type <- vdem %>%
+    subset(select = c(country, year, regime)) %>%
+    rename(regime_type = regime) %>%
+    mutate(year=year+1) %>% #just lagged
+    filter(year >= 1950)
+  regime_type <- regime_type %>% 
+    left_join(ccodes, by = c("country", "year")) %>% # NAs resulting from state-like actors, not full states.  
+    subset(select = -c(country))   %>% # To prevent future duplicated columns. 
+    drop_na() %>%
+    distinct() # No duplicates
+  label(regime_type$regime_type) <- "0 = Closed autocracy, 1 = Electoral autocracy, 2 = Electoral democracy, 3 = Liberal Democracy"
+  
+  # 2.3 Organizing variables for regression 
+  regime_type <- regime_type %>%
+    mutate(
+      closed_autocracy = ifelse(regime_type == 0, 1, 0),
+      electoral_autocracy = ifelse(regime_type == 1, 1, 0),
+      electoral_democracy = ifelse(regime_type == 2, 1, 0),
+      liberal_democracy = ifelse(regime_type == 3, 1, 0)
+    ) %>%
+    set_variable_labels(
+      closed_autocracy="from Vdem, t-1",
+      electoral_autocracy="from Vdem, t-1",
+      electoral_democracy="from Vdem, t-1",
+      liberal_democracy="fromvdem, t-1"
+    )
+  table(regime_type$regime_type, regime_type$closed_autocracy)
+  table(regime_type$regime_type, regime_type$electoral_autocracy)
+  table(regime_type$regime_type, regime_type$electoral_democracy)
+  table(regime_type$regime_type, regime_type$liberal_democracy)
+    #all above looks good
+  regime_type <- regime_type %>%
+    select(-regime_type)
+  
+  # 2.4. Merging into data set. 
+  base_data <- base_data %>% 
+    left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
+  rm(regime_type)    
+  
+#------------------------------------------------------------------------------------------------#
+#Regime type (v2x_polyarchy); from Vdem
+#------------------------------------------------------------------------------------------------#  
+
+vdem_regime2 <- vdem %>% 
+  subset(select = c(country, ccode, year, regime2)) %>% 
+  rename(polyarchy=regime2) %>%
+  filter(!(country == "Kazakhstan" & year == 1990)) %>% # Kazakhstan became independent this year.
+  filter(!(country == "Turkmenistan" & year == 1990)) %>% # Turkmenistan became independent this year. 
+  subset(select = -c(country)) %>%
+  mutate(year=year+1) %>% #just lagged
+  mutate(polyarchy2=polyarchy*polyarchy) %>%
+  set_variable_labels(
+    polyarchy="v2x_polyarchy, vdem, t-1",
+    polyarchy2="v2x_polyarchy^2, vdem, t-1")
+base_data <- base_data %>% 
+  left_join(vdem_regime2, by = c("ccode", "year")) 
+rm(vdem, vdem_regime2)
+
   #Get GDP/cap data from vdem. 'The V-Dem dataset does not cover some countries, namely: Andorra, Antigua and Barbuda, Bahamas, Belize, Brunei, Dominica, Federated States of Micronesia, Grenada, Kiribati, Liechtenstein, Marshall Islands, Monaco, Nauru, Palau, Saint Kitts and Nevis, Saint Lucia, Saint Vincent and the Grenadines, Samoa, San Marino, Tonga, Tuvalu, and the Vatican.'
   vdem_og <- vdem
   vdem <- vdem %>%
@@ -227,68 +289,6 @@ rm(check, milit, vdem_og)
     set_variable_labels(pres_elec_lead="1 if 1-3 mo after pres elec, vdem") %>%
     select(-lead1, -lead2, -pres_elec)  
            
-#------------------------------------------------------------------------------------------------#
-#Regime type (v2x_regime); from Vdem
-#------------------------------------------------------------------------------------------------#  
-  
-#Reading in data. Cleaning it up.
-  regime_type <- vdem %>%
-    subset(select = c(country, year, regime)) %>%
-    rename(regime_type = regime) %>%
-    mutate(year=year+1) %>% #just lagged
-    filter(year >= 1950)
-  regime_type <- regime_type %>% 
-    left_join(ccodes, by = c("country", "year")) %>% # NAs resulting from state-like actors, not full states.  
-    subset(select = -c(country))   %>% # To prevent future duplicated columns. 
-    drop_na() %>%
-    distinct() # No duplicates
-  label(regime_type$regime_type) <- "0 = Closed autocracy, 1 = Electoral autocracy, 2 = Electoral democracy, 3 = Liberal Democracy"
-  
-  # 2.3 Organizing variables for regression 
-  regime_type <- regime_type %>%
-    mutate(
-      closed_autocracy = ifelse(regime_type == 0, 1, 0),
-      electoral_autocracy = ifelse(regime_type == 1, 1, 0),
-      electoral_democracy = ifelse(regime_type == 2, 1, 0),
-      liberal_democracy = ifelse(regime_type == 3, 1, 0)
-    ) %>%
-    set_variable_labels(
-      closed_autocracy="from Vdem, t-1",
-      electoral_autocracy="from Vdem, t-1",
-      electoral_democracy="from Vdem, t-1",
-      liberal_democracy="fromvdem, t-1"
-    )
-  table(regime_type$regime_type, regime_type$closed_autocracy)
-  table(regime_type$regime_type, regime_type$electoral_autocracy)
-  table(regime_type$regime_type, regime_type$electoral_democracy)
-  table(regime_type$regime_type, regime_type$liberal_democracy)
-    #all above looks good
-  regime_type <- regime_type %>%
-    select(-regime_type)
-  
-  # 2.4. Merging into data set. 
-  base_data <- base_data %>% 
-    left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
-  rm(regime_type)    
-  
-#------------------------------------------------------------------------------------------------#
-#Regime type (v2x_polyarchy); from Vdem
-#------------------------------------------------------------------------------------------------#  
-
-vdem_regime2 <- vdem %>% 
-  subset(select = c(country, ccode, year, regime2)) %>% 
-  rename(polyarchy=regime2) %>%
-  filter(!(country == "Kazakhstan" & year == 1990)) %>% # Kazakhstan became independent this year.
-  filter(!(country == "Turkmenistan" & year == 1990)) %>% # Turkmenistan became independent this year. 
-  subset(select = -c(country)) %>%
-  mutate(year=year+1) %>% #just lagged
-  mutate(polyarchy2=polyarchy*polyarchy) %>%
-  set_variable_labels(
-    polyarchy="v2x_polyarchy, vdem, t-1",
-    polyarchy2="v2x_polyarchy^2, vdem, t-1")
-base_data <- base_data %>% 
-  left_join(vdem_regime2, by = c("ccode", "year")) 
-rm(vdem, vdem_regime2)
 
 
 
