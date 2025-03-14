@@ -11,10 +11,9 @@ rm(list = ls())
 #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
 #setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
-#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
-#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
-
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
 #------------------------------------------------------------------------------------------------#
 #merge DFs together
 #------------------------------------------------------------------------------------------------#
@@ -43,67 +42,65 @@ rm(url)
 base_data <- base_data.2a
 rm(base_data.2a)
 base_data.2b <- base_data.2b %>%
-  select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2b, by=c("ccode", "year", "month"))
 rm(base_data.2b)
 base_data.2c <- base_data.2c %>%
-  select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2c, by=c("ccode", "year", "month"))
 rm(base_data.2c)    
 base_data.2d <- base_data.2d %>%
-  select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2d, by=c("ccode", "year", "month"))
 rm(base_data.2d)    
 base_data.2e <- base_data.2e %>%
-  select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2e, by=c("ccode", "year", "month"))
 rm(base_data.2e)
 
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#logit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
+write.csv(base_data, "base_data.csv", row.names = FALSE)
 
+#for confusion matrix 
+columns <- c("pres_elec_lag", "polyarchy", "polyarchy2", 
+"lgdppcl", "ch_gdppcl", 
+"cw", 
+"cold", "e_asia_pacific", "LA_carrib", "MENA", "N_america", "S_asia", "Sub_africa", 
+"pce", "pce2", "pce3")
+
+base_data2 <- base_data[complete.cases(base_data[, ..columns]), ] #for confusion matrix
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#logit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
 coup_logit <- glm(coup_attempt ~ 
                     pres_elec_lag + polyarchy + polyarchy2 + #2.a. domestic political
                     lgdppcl + ch_gdppcl + #2.b. domestic economic
                     cw + #2.c. political instability
                     #NEED military vars here
                     cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
-                    pce + pce2 + pce3, #autocorrelation vars
-                  data = base_data, family = 'binomial', na.action=na.exclude)
+                    pce + pce2 + pce3, #autocorrelation vars, 
+                  data = base_data, family = 'binomial')
 summary(coup_logit)
 
 
-#get predicted probabilities; pr(coup within X months)...
-  base_data$yhat <- predict(coup_logit, type="response")
-  base_data <- base_data %>%
-    mutate(pr12=1-(1-yhat)^12) %>%
-    set_variable_labels(pr12="pr(at least 1 coup) in next 12 months")
-  
-
-
-
-
-coup_logit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data, family = 'binomial')
-summary(coup_logit)
-
-#probability change
-predicted_logit <- predict(coup_logit, type = 'response') #predicted probability
+#marginal effects
 mfxL <- margins(coup_logit, type = 'response') #marginal effects
 summary(mfxL) # R rounds to 0
 print(mfxL, digits = 6) # do this to see actual values
+
+
 
 # Calculate DFBETAs
 dfbetas_values <- dfbetas(coup_logit)
 
 # Find observations with any DFBETA greater than 2/sqrt(n) in absolute value. Can change to 2 for basic threshold
-influential_obs <- apply(abs(dfbetas_values), 1, function(x) any(x > 2/sqrt(length(base_data))))
+influential_obsL <- apply(abs(dfbetas_values), 1, function(x) any(x > 2))
 
 # Display influential observations
-which(influential_obs)
+which(influential_obsL)
 
 
 # Logit table using GT, error message on color scale, fix rounding and which "statistic"
@@ -180,11 +177,17 @@ print(formatted_table)
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #probit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
-coup_probit <- glm(`coup_attempt` ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data, family = binomial(link = 'probit'))
+coup_probit <- glm(coup_attempt ~ 
+                     pres_elec_lag + polyarchy + polyarchy2 + #2.a. domestic political
+                     lgdppcl + ch_gdppcl + #2.b. domestic economic
+                     cw + #2.c. political instability
+                     #NEED military vars here
+                     cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                     pce + pce2 + pce3, #autocorrelation vars, 
+                  data = base_data, family = binomial(link = "probit"))
 summary(coup_probit)
 
-#predicted probabilities for probit
-predicted_probit <- predict(coup_probit, type = 'response') #predicted probabilites
+#marginal effects for probit
 mfxP <- margins(coup_probit) #marginal efffects
 summary(mfxP) # R rounds to 0
 print(mfxP, digits = 6) # do this to see actual values
@@ -193,10 +196,10 @@ print(mfxP, digits = 6) # do this to see actual values
 dfbetas_values <- dfbetas(coup_probit)
 
 # Find observations with any DFBETA greater than 2/sqrt(n) in absolute value. Can change to 2 for basic threshold
-influential_obs <- apply(abs(dfbetas_values), 1, function(x) any(x > 2/sqrt(length(base_data))))
+influential_obsP <- apply(abs(dfbetas_values), 1, function(x) any(x > 2))
 
 # Display influential observations
-which(influential_obs)
+which(influential_obsP)
 
 
 
@@ -269,12 +272,44 @@ formatted_table <- tab_source_note(
 # Print the formatted table
 print(formatted_table)
 
-
+#checking 1s and 0s 
+value_counts <- table(base_data$coup_attempt)
+value_counts
 #-------------------------------------------------------------------------------------------------------------------
 #DIAGNOSTICS (both models)
+#Accuracy Logit
+predicted_logit <- predict(coup_logit, type = 'response') #predicted probability
+
+# Convert probabilities to binary class labels
+predicted_classes <- ifelse(predicted_logit > 0.0034, 1, 0)
+predicted_classes <- factor(predicted_classes, levels = c(0, 1))  # Specify levels 0 and 1
+actual_classes <- factor(base_data2$coup_attempt, levels = c(0, 1))  # Ensure actual labels have the same levels
+# Create confusion matrix
+conf_matrix <- confusionMatrix(as.factor(predicted_classes), as.factor(base_data2$coup_attempt))
+
+# View confusion matrix
+conf_matrix
+
+
+
+
+#Accuracy Probit
+predicted_probit <- predict(coup_probit, type = 'response') #predicted probabilites
+
+predicted_classes <- ifelse(predicted_probit > 0.0034, 1, 0)
+predicted_classes <- factor(predicted_classes, levels = c(0, 1))  # Specify levels 0 and 1
+actual_classes <- factor(base_data2$coup_attempt, levels = c(0, 1))  # Ensure actual labels have the same levels
+# Create confusion matrix
+conf_matrix <- confusionMatrix(as.factor(predicted_classes), as.factor(base_data2$coup_attempt))
+
+# View confusion matrix
+conf_matrix
+
+
 #logit pearson residuals
 pearson_residuals_logit <- residuals(coup_logit, type = "pearson")
 pearson_residuals_logit
+
 
 #plotted logit pearson residuals
 # Create a data frame for plotting
@@ -349,18 +384,19 @@ ggplot(plot_data, aes(x = observation, y = cooks_distance)) +
   theme_minimal()  # Optional: minimal theme for clean look
 
 
-
-
-
-
-#multicollinearity (probit and logit) >10 have a problem 
 vif(coup_logit)
 vif(coup_probit)
 
 #heteroscedasticity test (check in OLS)
 #run linear model 
-OLS_coup <- lm(coup_attempt ~ `pop` + `median_age` + `milex` + `milper` + euro_cent_asia + LA_carrib + MENA + S_asia + Sub_africa + pce + pce2 + pce3, data = base_data)
-summary(OLS_coup)
+OLS_coup <- lm(coup_attempt ~ 
+                 pres_elec_lag + polyarchy + polyarchy2 + #2.a. domestic political
+                 lgdppcl + ch_gdppcl + #2.b. domestic economic
+                 cw + #2.c. political instability
+                 #NEED military vars here
+                 cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                 pce + pce2 + pce3, #autocorrelation vars, 
+                data = base_data)
 
 #Breusch-Pagan test, if significant, heteroscedasticity probable in MLE model, further testing (hetprobit)
 bptest(OLS_coup)
@@ -368,4 +404,6 @@ bptest(OLS_coup)
 
 
 
-#Other diagnositc tests need adding
+#Other diagnositc tests maybe 
+
+
