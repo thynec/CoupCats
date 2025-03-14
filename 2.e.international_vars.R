@@ -157,7 +157,7 @@ write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 
 # 1. WEIS DATA
 # 1.1. Getting the data
-url <- "https://github.com/thynec/CoupCats/raw/main/weis.fromlai.1966-93.dta" #bringing in the data
+url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/weis.fromlai.1966-93.dta" #bringing in the data
 weis <- read_dta(url)
 rm(url)
 
@@ -169,11 +169,9 @@ weis <- weis %>%
     month = mo   
   ) %>% 
   mutate("z_variable" = scale(weis$gscale)) #getting the z score
-
-# 1.3. Aggregating by month    # We figured that it is possibly better to do this after we merge both datasets and have them in the same scale
-# weis <- weis %>%
-#group_by(year, month, target) %>%
-#summarise(across(where(is.numeric), mean, na.rm = TRUE), .groups = "drop") #aggregating by month, year, and target
+  
+  weis <- weis %>% 
+  dplyr::select(year,target, month, z_variable)
 
 # 2. COPDAB DATA
 # 2.1. Getting the data
@@ -215,8 +213,28 @@ copdab <- copdab %>%
 copdab <-  copdab %>% 
   mutate("z_variable" = scale(copdab$weight))  # getting the z score
 
+copdab <-  copdab %>% 
+dplyr::select(year,target, month, z_variable)
 
+# 3. Merging both
+int_signals <- weis %>%
+  full_join(copdab, by=c("target", "year", "month", "z_variable"))
 
+int_signals <-int_signals %>% 
+  group_by(year, target, month) %>% 
+  mutate(z= mean(z_variable))
+
+int_signals <-int_signals %>% 
+  select(-z_variable)
+
+int_signals <- distinct(int_signals) 
+
+base_data <- base_data %>% 
+  left_join(int_signals, by = c("ccode" = "target", "year" = "year", "month" = "month"))
+
+base_data <- base_data %>% 
+  mutate(z = replace_na(z, 0)) %>%  #turning NAs to zeros
+  rename(int_signal = z) 
 
 
 ###############################################################################################
