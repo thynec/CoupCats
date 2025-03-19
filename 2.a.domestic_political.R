@@ -5,78 +5,138 @@
 #Building domestic political variables
 
 #Priority vars:
-  #elections - COMPLTED
-  #regime type - COMPLETED
-  #military regime dummy (from reign)  - NEEDS SOME WORK
+#elections - COMPLTED
+#regime type - COMPLETED
+#military regime dummy (from reign)  - COMPLETED
 
 #Secondary vars:
-  #Refined elections (updated w/ reign protocol) - NEEDED
-  #corruption  - NEEDED
-  #Incumbent takeovers (see Baturo/Tolstrup; J. Peace Research) - NEEDED
-  #% women in legislature  - NEEDED
+#Refined elections (updated w/ reign protocol) - NEEDED
+#corruption  - NEEDED
+#Incumbent takeovers (see Baturo/Tolstrup; J. Peace Research) - NEEDED
+#% women in legislature  - NEEDED
 
 #1. clear all
-  rm(list = ls())
+rm(list = ls())
 #2. set working directory
-  #setwd("~/R/coupcats") # Set working file. 
-  #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-  #setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("~/R/coupcats") # Set working file. 
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
-  #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
-  #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
 #5. build baseline
-  source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
 
 #------------------------------------------------------------------------------------------------#  
 #bring in all vdem relevant data; clean it up
 #------------------------------------------------------------------------------------------------#  
-  #####
-  
-  #------------------------------------------------------------------------------------------------#
+#Note: The V-Dem dataset does not cover some countries, namely: Andorra, Antigua and Barbuda, Bahamas, Belize, Brunei, Dominica, Federated States of Micronesia, Grenada, Kiribati, Liechtenstein, Marshall Islands, Monaco, Nauru, Palau, Saint Kitts and Nevis, Saint Lucia, Saint Vincent and the Grenadines, Samoa, San Marino, Tonga, Tuvalu, and the Vatican.
+vdem_og <- vdem
+vdem <- vdem %>%
+  subset(select = c(country_name, # Country. 
+                    e_regionpol_6C, # Region. 
+                    year, # Year. 
+                    v2x_regime, # Regime type. 
+                    v2x_polyarchy, # Regime type. 
+                    v2x_execorr, # Executive corruption index.
+                    v2x_jucon, # Judicial constraints on the executive index ordinal
+                    v2x_corr, # Political corruption. 
+                    v2cacamps, # Political polarization.
+                    v2x_civlib, # Civil liberties. 
+                    v2x_rule, # Rule of law. 
+                    v2xcs_ccsi, # Core civil society index. 
+                    v2x_genpp, # Women political participation index. 
+                    v2x_gender, # Women political empowerment index. 
+                    v2x_gencl, # Women civil liberties.
+                    e_pelifeex, # Life expectancy. 
+                    e_gdp, # GDP. 
+                    e_gdppc, # GDPPC. 
+                    e_miinflat, # Inflation rate. 
+                    e_cow_exports, # Exports. 
+                    e_cow_imports, # Imports. 
+                    v2smgovshut, # Government Internet shut down in practice.
+                    v2smgovfilprc, # Government  Internet filtering in practice, 
+                    v2smfordom)) # Foreign governments dissemination of false information. 
+'Assume these columns are clear of NAs unless stated otherwise.'
+
+vdem <- vdem %>%
+  rename(country = country_name,
+         region = e_regionpol_6C,
+         year = year, 
+         regime = v2x_regime, 
+         regime2 = v2x_polyarchy,
+         exec_corr = v2x_execorr, 
+         jud_const = v2x_jucon, 
+         pol_corr = v2x_corr, 
+         civ_lib = v2x_civlib, 
+         pol_polar = v2cacamps, 
+         law_rule = v2x_rule, # Ditto Timor-Leste. 
+         civ_soc = v2xcs_ccsi, 
+         wom_polpart = v2x_genpp, # Lots of issues... run: na_df <- vdem[is.na(vdem$wom_polpart), , drop = FALSE]
+         women_polemp = v2x_gender, # Run: na_df <- vdem[is.na(vdem$v2x_gender), , drop = FALSE]
+         wom_civlib = v2x_gencl, # No issues--could replace wom_polpart and women_polemp 
+         life_exp = e_pelifeex, # Between 1800 to 2022; missing South Yemen, Republic of Vietnam (1950-75), Kosovo, German Democratic Republic, Palestine/Gaza, Somaliland, Hong Kong, Zanzibar 
+         gdp = e_gdp, # Between 1789 to 2019... good for past data, might need something else for current data. 
+         gdppc = e_gdppc, # Ditto GDP. 
+         infla_rate = e_miinflat, # Ditto GDP. 
+         exports = e_cow_exports, # Between 1870 to 2014.
+         imports = e_cow_imports, # Between 1870 to 2014.
+         int_shutdown = v2smgovshut, # Between 2000 to 2023... can likely code this to be 0 for previous years. 
+         int_censor = v2smgovfilprc, # Between 2000 to 2023.
+         forgov_misinfo = v2smfordom) %>% # Between 2000 to 2023.
+  mutate(year=year+1) %>% #just lagged
+  filter(year >= 1950)
+vdem <- vdem %>% # Merging in ccodes. 
+  left_join(ccodes, by = c("year", "country")) %>%
+  filter(!is.na(ccode)) # Non-state actors. 
+
+#end bringing in Vdem, cleaning it up
+
+#------------------------------------------------------------------------------------------------#
 #Regime type (v2x_regime); from Vdem
 #------------------------------------------------------------------------------------------------#  
-  
+
 #Reading in data. Cleaning it up.
-  regime_type <- vdem %>%
-    subset(select = c(country, year, regime)) %>%
-    rename(regime_type = regime) %>%
-    mutate(year=year+1) %>% #just lagged
-    filter(year >= 1950)
-  regime_type <- regime_type %>% 
-    left_join(ccodes, by = c("country", "year")) %>% # NAs resulting from state-like actors, not full states.  
-    subset(select = -c(country))   %>% # To prevent future duplicated columns. 
-    drop_na() %>%
-    distinct() # No duplicates
-  label(regime_type$regime_type) <- "0 = Closed autocracy, 1 = Electoral autocracy, 2 = Electoral democracy, 3 = Liberal Democracy"
-  
-  # 2.3 Organizing variables for regression 
-  regime_type <- regime_type %>%
-    mutate(
-      closed_autocracy = ifelse(regime_type == 0, 1, 0),
-      electoral_autocracy = ifelse(regime_type == 1, 1, 0),
-      electoral_democracy = ifelse(regime_type == 2, 1, 0),
-      liberal_democracy = ifelse(regime_type == 3, 1, 0)
-    ) %>%
-    set_variable_labels(
-      closed_autocracy="from Vdem, t-1",
-      electoral_autocracy="from Vdem, t-1",
-      electoral_democracy="from Vdem, t-1",
-      liberal_democracy="fromvdem, t-1"
-    )
-  table(regime_type$regime_type, regime_type$closed_autocracy)
-  table(regime_type$regime_type, regime_type$electoral_autocracy)
-  table(regime_type$regime_type, regime_type$electoral_democracy)
-  table(regime_type$regime_type, regime_type$liberal_democracy)
-    #all above looks good
-  regime_type <- regime_type %>%
-    select(-regime_type)
-  
-  # 2.4. Merging into data set. 
-  base_data <- base_data %>% 
-    left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
-  rm(regime_type)    
-  
+regime_type <- vdem %>%
+  subset(select = c(country, year, regime)) %>%
+  rename(regime_type = regime) %>%
+  mutate(year=year+1) %>% #just lagged
+  filter(year >= 1950)
+regime_type <- regime_type %>% 
+  left_join(ccodes, by = c("country", "year")) %>% # NAs resulting from state-like actors, not full states.  
+  subset(select = -c(country))   %>% # To prevent future duplicated columns. 
+  drop_na() %>%
+  distinct() # No duplicates
+label(regime_type$regime_type) <- "0 = Closed autocracy, 1 = Electoral autocracy, 2 = Electoral democracy, 3 = Liberal Democracy"
+
+# 2.3 Organizing variables for regression 
+regime_type <- regime_type %>%
+  mutate(
+    closed_autocracy = ifelse(regime_type == 0, 1, 0),
+    electoral_autocracy = ifelse(regime_type == 1, 1, 0),
+    electoral_democracy = ifelse(regime_type == 2, 1, 0),
+    liberal_democracy = ifelse(regime_type == 3, 1, 0)
+  ) %>%
+  set_variable_labels(
+    closed_autocracy="from Vdem, t-1",
+    electoral_autocracy="from Vdem, t-1",
+    electoral_democracy="from Vdem, t-1",
+    liberal_democracy="fromvdem, t-1"
+  )
+table(regime_type$regime_type, regime_type$closed_autocracy)
+table(regime_type$regime_type, regime_type$electoral_autocracy)
+table(regime_type$regime_type, regime_type$electoral_democracy)
+table(regime_type$regime_type, regime_type$liberal_democracy)
+#all above looks good
+regime_type <- regime_type %>%
+  select(-regime_type)
+
+# 2.4. Merging into data set. 
+base_data <- base_data %>% 
+  left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
+rm(regime_type)    
+
 #------------------------------------------------------------------------------------------------#
 #Regime type (v2x_polyarchy); from Vdem
 #------------------------------------------------------------------------------------------------#  
@@ -96,78 +156,16 @@ base_data <- base_data %>%
   left_join(vdem_regime2, by = c("ccode", "year")) 
 rm(vdem, vdem_regime2)
 
-  #Get GDP/cap data from vdem. 'The V-Dem dataset does not cover some countries, namely: Andorra, Antigua and Barbuda, Bahamas, Belize, Brunei, Dominica, Federated States of Micronesia, Grenada, Kiribati, Liechtenstein, Marshall Islands, Monaco, Nauru, Palau, Saint Kitts and Nevis, Saint Lucia, Saint Vincent and the Grenadines, Samoa, San Marino, Tonga, Tuvalu, and the Vatican.'
-  vdem_og <- vdem
-  vdem <- vdem %>%
-    subset(select = c(country_name, # Country. 
-                      e_regionpol_6C, # Region. 
-                      year, # Year. 
-                      v2x_regime, # Regime type. 
-                      v2x_polyarchy, # Regime type. 
-                      v2x_execorr, # Executive corruption index.
-                      v2x_jucon, # Judicial constraints on the executive index ordinal
-                      v2x_corr, # Political corruption. 
-                      v2cacamps, # Political polarization.
-                      v2x_civlib, # Civil liberties. 
-                      v2x_rule, # Rule of law. 
-                      v2xcs_ccsi, # Core civil society index. 
-                      v2x_genpp, # Women political participation index. 
-                      v2x_gender, # Women political empowerment index. 
-                      v2x_gencl, # Women civil liberties.
-                      e_pelifeex, # Life expectancy. 
-                      e_gdp, # GDP. 
-                      e_gdppc, # GDPPC. 
-                      e_miinflat, # Inflation rate. 
-                      e_cow_exports, # Exports. 
-                      e_cow_imports, # Imports. 
-                      v2smgovshut, # Government Internet shut down in practice.
-                      v2smgovfilprc, # Government  Internet filtering in practice, 
-                      v2smfordom)) # Foreign governments dissemination of false information. 
-  'Assume these columns are clear of NAs unless stated otherwise.'
-  
-  vdem <- vdem %>%
-    rename(country = country_name,
-           region = e_regionpol_6C,
-           year = year, 
-           regime = v2x_regime, 
-           regime2 = v2x_polyarchy,
-           exec_corr = v2x_execorr, 
-           jud_const = v2x_jucon, 
-           pol_corr = v2x_corr, 
-           civ_lib = v2x_civlib, 
-           pol_polar = v2cacamps, 
-           law_rule = v2x_rule, # Ditto Timor-Leste. 
-           civ_soc = v2xcs_ccsi, 
-           wom_polpart = v2x_genpp, # Lots of issues... run: na_df <- vdem[is.na(vdem$wom_polpart), , drop = FALSE]
-           women_polemp = v2x_gender, # Run: na_df <- vdem[is.na(vdem$v2x_gender), , drop = FALSE]
-           wom_civlib = v2x_gencl, # No issues--could replace wom_polpart and women_polemp 
-           life_exp = e_pelifeex, # Between 1800 to 2022; missing South Yemen, Republic of Vietnam (1950-75), Kosovo, German Democratic Republic, Palestine/Gaza, Somaliland, Hong Kong, Zanzibar 
-           gdp = e_gdp, # Between 1789 to 2019... good for past data, might need something else for current data. 
-           gdppc = e_gdppc, # Ditto GDP. 
-           infla_rate = e_miinflat, # Ditto GDP. 
-           exports = e_cow_exports, # Between 1870 to 2014.
-           imports = e_cow_imports, # Between 1870 to 2014.
-           int_shutdown = v2smgovshut, # Between 2000 to 2023... can likely code this to be 0 for previous years. 
-           int_censor = v2smgovfilprc, # Between 2000 to 2023.
-           forgov_misinfo = v2smfordom) %>% # Between 2000 to 2023.
-    mutate(year=year+1) %>% #just lagged
-    filter(year >= 1950)
-  vdem <- vdem %>% # Merging in ccodes. 
-    left_join(ccodes, by = c("year", "country")) %>%
-    filter(!is.na(ccode)) # Non-state actors. 
-  #####
-  #end bringing in Vdem, cleaning it up
-
 #------------------------------------------------------------------------------------------------#
 #military regime; take from vdem
 #------------------------------------------------------------------------------------------------#      
 
 #bring in; clean
 milit <- vdem_og %>%
-    select(country=country_name, year, v2x_ex_military) %>%
-    rename(milit=v2x_ex_military) %>%
-    mutate(year=year+1) %>% #just lagged
-    set_variable_labels(milit="milit dimension index, vdem, t-1")
+  select(country=country_name, year, v2x_ex_military) %>%
+  rename(milit=v2x_ex_military) %>%
+  mutate(year=year+1) %>% #just lagged
+  set_variable_labels(milit="milit dimension index, vdem, t-1")
 milit <- milit %>% 
   filter(year>1945) %>%
   left_join(ccodes, by = c("country", "year")) 
@@ -186,113 +184,148 @@ check <- base_data %>%
   select(country, ccode, year, milit) %>%
   distinct()
 table(check$country) #probably good, but also might want to double check: Belize, Czechoslovakia, Bosnia and Herzegovina, United Arab Emirates, LIbya, Slovakia, Yemen Arab Republic, Bangladesh, Cameroon, German Federal Replublic, South Sudan.  Feels like a lot but just missing 1 year (12 months) on almost all of these, so probably just fine.
+base_data <- base_data %>%
+  rename(milit_dimension=milit)
 rm(check, milit, vdem_og)
 
 #------------------------------------------------------------------------------------------------#
 #elections; from Vdem
 #------------------------------------------------------------------------------------------------#    
-  
+
 #read in country-date version
-  url <- "https://www.v-dem.net/media/datasets/V-Dem-CD-v14_csv_5jzTg6X.zip"
-  download.file(url, "data.zip")
-  unzip("data.zip", exdir="data")
-  unlink("data.zip")
-  df_og <- read_csv("data/V-Dem-CD-v14.csv")
-  unlink("data", recursive=TRUE)
-  rm(url)  
-  
+url <- "https://www.v-dem.net/media/datasets/V-Dem-CD-v14_csv_5jzTg6X.zip"
+download.file(url, "data.zip")
+unzip("data.zip", exdir="data")
+unlink("data.zip")
+df_og <- read_csv("data/V-Dem-CD-v14.csv")
+unlink("data", recursive=TRUE)
+rm(url)  
+
 #clean up data
-  summary(df_og$year) #1789 through 2023 for missing
-  df <- df_og %>%
-    filter(year>1945) %>%
-    select(
-      country_name, year, historical_date, 
-      v2eltype_0, v2eltype_1, v2eltype_2, v2eltype_3, v2eltype_4, v2eltype_5, v2eltype_6, v2eltype_7, v2eltype_8, v2eltype_9)
-  df <- df %>%
-    filter(!is.na(v2eltype_0)) %>%
-    mutate(election=1) %>%
-    mutate(legis_elec=ifelse(v2eltype_0==1 | v2eltype_1==1 | v2eltype_2==1 | v2eltype_3==1, 1, 0)) %>%
-    mutate(pres_elec=ifelse(v2eltype_6==1 | v2eltype_7==1, 1, 0)) 
-  df <- df %>%
-    select(country_name, year, historical_date, election, legis_elec, pres_elec) %>%
-    mutate(month=month(historical_date)) %>%
-    select(country=country_name, year, month, election, legis_elec, pres_elec) %>%
-    left_join(ccodes, by=c("country", "year"))
-  check <- df %>%
-    filter(is.na(ccode))
-  table(check$country) #we're fine
-  rm(check)
-  #collapse so we don't have duplicate ccode/year/months; then merge; one at a time
-  df2 <- df %>%
-    group_by(ccode, year, month) %>%
-    dplyr::summarize(election = max(election, na.rm=TRUE)) 
-      base_data <- base_data %>%
-        left_join(df2, by=c("ccode", "year", "month"))
-  df2 <- df %>%
-    group_by(ccode, year, month) %>%
-    dplyr::summarize(legis_elec = max(legis_elec, na.rm=TRUE)) 
-      base_data <- base_data %>%
-        left_join(df2, by=c("ccode", "year", "month"))
-  df2 <- df %>%
-    group_by(ccode, year, month) %>%
-    dplyr::summarize(pres_elec = max(pres_elec, na.rm=TRUE)) 
-      base_data <- base_data %>%
-        left_join(df2, by=c("ccode", "year", "month"))  
-  rm(df, df_og, df2)
-  base_data <- base_data %>%
-    set_variable_labels(
-      election="any election, vdem",
-      legis_elec="legis elec, vdem", 
-      pres_elec="presidential elec, vdem") %>%
-    ungroup()
+summary(df_og$year) #1789 through 2023 for missing
+df <- df_og %>%
+  filter(year>1945) %>%
+  select(
+    country_name, year, historical_date, 
+    v2eltype_0, v2eltype_1, v2eltype_2, v2eltype_3, v2eltype_4, v2eltype_5, v2eltype_6, v2eltype_7, v2eltype_8, v2eltype_9)
+df <- df %>%
+  filter(!is.na(v2eltype_0)) %>%
+  mutate(election=1) %>%
+  mutate(legis_elec=ifelse(v2eltype_0==1 | v2eltype_1==1 | v2eltype_2==1 | v2eltype_3==1, 1, 0)) %>%
+  mutate(pres_elec=ifelse(v2eltype_6==1 | v2eltype_7==1, 1, 0)) 
+df <- df %>%
+  select(country_name, year, historical_date, election, legis_elec, pres_elec) %>%
+  mutate(month=month(historical_date)) %>%
+  select(country=country_name, year, month, election, legis_elec, pres_elec) %>%
+  left_join(ccodes, by=c("country", "year"))
+check <- df %>%
+  filter(is.na(ccode))
+table(check$country) #we're fine
+rm(check)
+#collapse so we don't have duplicate ccode/year/months; then merge; one at a time
+df2 <- df %>%
+  group_by(ccode, year, month) %>%
+  dplyr::summarize(election = max(election, na.rm=TRUE)) 
+base_data <- base_data %>%
+  left_join(df2, by=c("ccode", "year", "month"))
+df2 <- df %>%
+  group_by(ccode, year, month) %>%
+  dplyr::summarize(legis_elec = max(legis_elec, na.rm=TRUE)) 
+base_data <- base_data %>%
+  left_join(df2, by=c("ccode", "year", "month"))
+df2 <- df %>%
+  group_by(ccode, year, month) %>%
+  dplyr::summarize(pres_elec = max(pres_elec, na.rm=TRUE)) 
+base_data <- base_data %>%
+  left_join(df2, by=c("ccode", "year", "month"))  
+rm(df, df_og, df2)
+base_data <- base_data %>%
+  set_variable_labels(
+    election="any election, vdem",
+    legis_elec="legis elec, vdem", 
+    pres_elec="presidential elec, vdem") %>%
+  ungroup()
 #set up vars that are 3 months before elections
-  base_data <- base_data %>%
-    arrange(ccode, year, month) %>%
-    mutate(election=ifelse(is.na(election) & year<2024, 0, election)) %>%
-    mutate(legis_elec=ifelse(is.na(legis_elec) & year<2024, 0, legis_elec)) %>%
-    mutate(pres_elec=ifelse(is.na(pres_elec) & year<2024, 0, pres_elec)) 
-  base_data <- base_data %>%
-    mutate(elec=ifelse(ccode==lead(ccode), lead(election), election)) %>%
-    mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), election)) %>%
-    mutate(elec_lag=elec+elec2+election) %>%
-    set_variable_labels(elec_lag="1 if 1-3 mo B4 any elec, vdem") %>%
-    select(-elec, -elec2)
-  base_data <- base_data %>%
-    mutate(elec=ifelse(ccode==lead(ccode), lead(legis_elec), legis_elec)) %>%
-    mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), legis_elec)) %>%
-    mutate(legis_elec_lag=elec+elec2+legis_elec) %>%
-    set_variable_labels(legis_elec_lag="1 if 1-3 mo B4 legis elec, vdem") %>%
-    select(-elec, -elec2)  
-  base_data <- base_data %>%
-    mutate(elec=ifelse(ccode==lead(ccode), lead(pres_elec), pres_elec)) %>%
-    mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), pres_elec)) %>%
-    mutate(pres_elec_lag=elec+elec2+pres_elec) %>%
-    set_variable_labels(pres_elec_lag="1 if 1-3 mo B4 pres elec, vdem") %>%
-    select(-elec, -elec2)  
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  mutate(election=ifelse(is.na(election) & year<2024, 0, election)) %>%
+  mutate(legis_elec=ifelse(is.na(legis_elec) & year<2024, 0, legis_elec)) %>%
+  mutate(pres_elec=ifelse(is.na(pres_elec) & year<2024, 0, pres_elec)) 
+base_data <- base_data %>%
+  mutate(elec=ifelse(ccode==lead(ccode), lead(election), election)) %>%
+  mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), election)) %>%
+  mutate(elec_lag=elec+elec2+election) %>%
+  set_variable_labels(elec_lag="1 if 1-3 mo B4 any elec, vdem") %>%
+  select(-elec, -elec2)
+base_data <- base_data %>%
+  mutate(elec=ifelse(ccode==lead(ccode), lead(legis_elec), legis_elec)) %>%
+  mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), legis_elec)) %>%
+  mutate(legis_elec_lag=elec+elec2+legis_elec) %>%
+  set_variable_labels(legis_elec_lag="1 if 1-3 mo B4 legis elec, vdem") %>%
+  select(-elec, -elec2)  
+base_data <- base_data %>%
+  mutate(elec=ifelse(ccode==lead(ccode), lead(pres_elec), pres_elec)) %>%
+  mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), pres_elec)) %>%
+  mutate(pres_elec_lag=elec+elec2+pres_elec) %>%
+  set_variable_labels(pres_elec_lag="1 if 1-3 mo B4 pres elec, vdem") %>%
+  select(-elec, -elec2)  
 #set up vars that are 3 months after elections
-  base_data <- base_data %>%
-    mutate(lead1=ifelse(ccode==lag(ccode), lag(election), election)) %>%
-    mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), election)) %>%
-    mutate(elec_lead=election+lead1+lead2) %>%
-    set_variable_labels(elec_lead="1 if 1-3 mo after any elec, vdem") %>%
-    select(-lead1, -lead2, -election)
-  base_data <- base_data %>%
-    mutate(lead1=ifelse(ccode==lag(ccode), lag(legis_elec), legis_elec)) %>%
-    mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), legis_elec)) %>%
-    mutate(legis_elec_lead=legis_elec+lead1+lead2) %>%
-    set_variable_labels(legis_elec_lead="1 if 1-3 mo after legis elec, vdem") %>%
-    select(-lead1, -lead2, -legis_elec)  
-  base_data <- base_data %>%
-    mutate(lead1=ifelse(ccode==lag(ccode), lag(pres_elec), pres_elec)) %>%
-    mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), pres_elec)) %>%
-    mutate(pres_elec_lead=pres_elec+lead1+lead2) %>%
-    set_variable_labels(pres_elec_lead="1 if 1-3 mo after pres elec, vdem") %>%
-    select(-lead1, -lead2, -pres_elec)  
-           
+base_data <- base_data %>%
+  mutate(lead1=ifelse(ccode==lag(ccode), lag(election), election)) %>%
+  mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), election)) %>%
+  mutate(elec_lead=election+lead1+lead2) %>%
+  set_variable_labels(elec_lead="1 if 1-3 mo after any elec, vdem") %>%
+  select(-lead1, -lead2, -election)
+base_data <- base_data %>%
+  mutate(lead1=ifelse(ccode==lag(ccode), lag(legis_elec), legis_elec)) %>%
+  mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), legis_elec)) %>%
+  mutate(legis_elec_lead=legis_elec+lead1+lead2) %>%
+  set_variable_labels(legis_elec_lead="1 if 1-3 mo after legis elec, vdem") %>%
+  select(-lead1, -lead2, -legis_elec)  
+base_data <- base_data %>%
+  mutate(lead1=ifelse(ccode==lag(ccode), lag(pres_elec), pres_elec)) %>%
+  mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), pres_elec)) %>%
+  mutate(pres_elec_lead=pres_elec+lead1+lead2) %>%
+  set_variable_labels(pres_elec_lead="1 if 1-3 mo after pres elec, vdem") %>%
+  select(-lead1, -lead2, -pres_elec)  
 
+#------------------------------------------------------------------------------------------------#
+#milreg; emailed by Powell on 03/18/25; REIGN with updates
+#------------------------------------------------------------------------------------------------#  
 
+milreg <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/coupcats_military_regime.csv")
+milreg <- milreg %>%
+  rename(country_milreg=country) 
 
+check <- milreg %>%
+  arrange(ccode, year, month) %>%
+  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year) & month==lag(month), 1, NA))
+table(check$problem)
+  #have 124 cases of 2+ coding in same month; see if they're all milreg...
+check <- milreg %>%
+  arrange(ccode, year, month) %>%
+  select(-reign_type) %>%
+  distinct() %>%
+  arrange(ccode, year, month) %>%
+  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year) & month==lag(month), 1, NA))
+table(check$problem) # that fixed it
+rm(check)
+milreg <- milreg %>% 
+  select(-reign_type) %>%
+  distinct()
 
+base_data <- base_data %>%
+  left_join(milreg, by=c("ccode", "year", "month")) %>%
+  mutate(milreg=ifelse(is.na(milreg), 0, milreg)) 
+check <- base_data %>%
+  mutate(problem=ifelse(country!=country_milreg, 1, NA)) %>%
+  filter(problem==1) %>%
+  select(country, country_milreg) %>%
+  distinct() #all good with ccodes matching
+rm(check, milreg)
+base_data <- base_data %>%
+  set_variable_labels(milreg="milreg from reign; powell updates") %>%
+  select(-country_milreg)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
@@ -700,9 +733,9 @@ gender_data <- gender_data %>%
 base_data <- base_data %>% 
   left_join(gender_data, by = c("ccode", "year")) 
 check <- base_data %>% 
-    subset(select = c(country, mcountry)) %>%
-    distinct() %>%
-    filter(country!=mcountry)
+  subset(select = c(country, mcountry)) %>%
+  distinct() %>%
+  filter(country!=mcountry)
 rm(check) # All good. 
 base_data <- base_data %>%
   subset(select = -c(mcountry))
