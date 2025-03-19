@@ -5,18 +5,20 @@
 #Building political instability variables
 
 #Priority vars:
+#mobilization using VDEM - COMPLETED
+#civil wars - COMPLETED
+
+#Secondary vars:
 #protests using events data
 #instability using Banks
-#civil wars - COMPLETED
-#Secondary vars:
 #terrorist attacks
 
 #1. clear all
 rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
-#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -139,8 +141,11 @@ vdem_data <- vdem %>%
   mutate(year=year+1) %>% # Just lagged. 
   filter(year >= 1950) 
 vdem_data <- vdem_data %>% # Merging in ccodes. 
-  left_join(ccodes, by = c("year", "country")) %>% # No Republic of Vietnam (1950-76), Afghanistan (1950-2000), Guinea-Bissau (1950-2005), Laos (2024), Iceland (1950-2019)
-  drop_na()
+  left_join(ccodes, by = c("year", "country")) 
+check <- vdem_data %>%
+  filter(is.na(ccode))
+table(check$country) #looks good
+rm(check) # No Republic of Vietnam (1950-76), Afghanistan (1950-2000), Guinea-Bissau (1950-2005), Laos (2024), Iceland (1950-2019)
 
 # Merging into data set. 
 vdem_data <- vdem_data %>%
