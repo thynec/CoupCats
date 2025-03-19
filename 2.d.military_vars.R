@@ -205,9 +205,11 @@ base_data <- base_data %>%
   select(-cow_milper, -wdi_milper)
 rm(df)
 base_data <- base_data %>%
-  mutate(solqual=log(milex_spliced/milper_spliced)) %>%
+  mutate(milex=log(milex_spliced+1)) %>%
+  mutate(milper=log(milper_spliced+1)) %>%
+  mutate(solqual=milex/(milper+1)) %>%
   select(-milex_spliced, -milper_spliced)
-
+  
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
