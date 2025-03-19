@@ -73,7 +73,7 @@ write.csv(base_data, "base_data.csv", row.names = FALSE)
 coup_logit <- feglm(coup_attempt ~ 
                     pres_elec_lag + polyarchy + polyarchy2 + milreg + #2.a. domestic political
                     lgdppcl + ch_gdppcl + #2.b. domestic economic
-                    cw + #2.c. political instability
+                    cw + mobilization + #2.c. political instability
                     #NEED military vars here
                     cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                     pce + pce2 + pce3, #autocorrelation vars, 
