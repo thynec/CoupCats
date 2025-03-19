@@ -39,6 +39,7 @@ install.packages("olsrr") # Linear regression diagnostics and model selection
 install.packages("lme4") # Linear and generalized linear mixed-effects models
 install.packages("MASS") # Various statistical models and methods
 install.packages("margins") #Used for marginal effects
+install.packages("fixest") #For adding robust SEs
 
 # Spatial Analysis
 install.packages("sf") # Handle spatial data and analysis
