@@ -392,5 +392,80 @@ bptest(OLS_coup)
 
 
 
+# --------------------------- Test, Train, Split --------------------------- #
 
-#Other diagnositc tests maybe 
+library(caret)
+set.seed(9)
+
+# Taking 70% randomly, stratifying by coup attempt. 
+training <- base_data2 %>%
+  group_by(coup_attempt) %>%
+  sample_frac(0.7) %>%
+  ungroup()
+
+# Other 30%. 
+testing <- anti_join(base_data2, training)
+
+# Running logit model. 
+training_logit <- feglm(
+  coup_attempt ~ pres_elec_lag + polyarchy + polyarchy2 + milreg + 
+    lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
+    cold + e_asia_pacific + LA_carrib + MENA + N_america + 
+    S_asia + Sub_africa + pce + pce2 + pce3,
+  data = training, family = 'binomial', cluster = ~ccode)
+summary(training_logit)
+
+# Predicting based on test data. 
+predicted_logit <- predict(training_logit, newdata = testing, type = 'response')
+predicted_classes <- ifelse(predicted_logit > 0.0034, 1, 0) # Test for better threshold. 
+
+# Create confusion matrix
+conf_matrix <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)), factor(testing$coup_attempt, levels = c(0, 1)))
+print(conf_matrix)
+
+rm(training, testing, training_logit, conf_matrix, predicted_logit, predicted_classes)
+
+# --------------------------- Under-sampling no coup attempt (0) --------------------------- #
+
+# set.seed(9)
+
+# Taking 70% randomly, stratifying by coup attempt. 
+training <- base_data2 %>%
+  group_by(coup_attempt) %>%
+  sample_frac(0.7) %>%
+  ungroup()
+testing <- anti_join(base_data2, training)
+
+# Separate the coups & no coups. 
+coup_cases <- training %>% 
+  filter(coup_attempt == 1)
+no_coup_cases <- training %>% 
+  filter(coup_attempt == 0)
+
+# Under-sample non-coup cases. 
+no_coup_sample <- no_coup_cases %>% 
+  sample_frac(0.5)  # Reduce the non-coup cases by half
+balanced_data <- bind_rows(coup_cases, no_coup_sample)
+table(balanced_data$coup_attempt)
+
+rm(coup_cases, no_coup_cases)
+
+# Running logit model. 
+training_logit <- feglm(coup_attempt ~ 
+                          pres_elec_lag + polyarchy + polyarchy2 + milreg + 
+                          lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
+                          cold + e_asia_pacific + LA_carrib + MENA + N_america + 
+                          S_asia + Sub_africa + pce + pce2 + pce3, 
+                        data = training, family = 'binomial', cluster = ~ccode)
+
+# Predicting based on test data. 
+predicted_logit <- predict(training_logit, newdata = testing, type = 'response')
+predicted_classes <- ifelse(predicted_logit > 0.0034, 1, 0) 
+
+# Create confusion matrix
+conf_matrix <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)), factor(testing$coup_attempt, levels = c(0, 1)))
+print(conf_matrix)
+
+rm(training, testing, training_logit, conf_matrix)
+rm(predicted_classes, predicted_logit)
+
