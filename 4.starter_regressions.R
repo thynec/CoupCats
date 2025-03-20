@@ -445,5 +445,36 @@ bptest(OLS_coup)
 
 
 
+# --------------------------- Test, Train, Split --------------------------- #
 
-#Other diagnositc tests maybe 
+library(caret)
+set.seed(9)
+
+# Taking 70% randomly, stratifying by coup attempt. 
+training <- base_data2 %>%
+  group_by(coup_attempt) %>%
+  sample_frac(0.7) %>%
+  ungroup()
+
+# Other 30%. 
+testing <- anti_join(base_data2, training)
+
+# Running logit model. 
+training_logit <- feglm(
+  coup_attempt ~ pres_elec_lag + polyarchy + polyarchy2 + milreg + 
+    lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
+    cold + e_asia_pacific + LA_carrib + MENA + N_america + 
+    S_asia + Sub_africa + pce + pce2 + pce3,
+  data = training, family = 'binomial', cluster = ~ccode)
+summary(training_logit)
+
+# Predicting based on test data. 
+predicted_logit <- predict(training_logit, newdata = testing, type = 'response')
+predicted_classes <- ifelse(predicted_logit > 0.001, 1, 0) # Converting probabilities to binary class labels. 
+
+# Create confusion matrix
+conf_matrix <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)), factor(testing$coup_attempt, levels = c(0, 1)))
+print(conf_matrix)
+rm(training, testing, training_logit, conf_matrix, predicted_logit, predicted_classes)
+
+
