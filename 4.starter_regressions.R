@@ -445,5 +445,55 @@ bptest(OLS_coup)
 
 
 
+# --------------------------- Test, Train, Split --------------------------- #
 
-#Other diagnositc tests maybe 
+library(caret)
+set.seed(9)
+
+# Splitting the data. 
+coup_cases <- base_data2 %>% 
+  filter(coup_attempt == 1)
+no_coup_cases <- base_data2 %>% 
+  filter(coup_attempt == 0)
+
+# Taking 70% randomly.
+train_coup <- coup_cases %>% 
+  sample_frac(0.7)
+train_no_coup <- no_coup_cases %>% 
+  sample_frac(0.7)
+training <- bind_rows(train_coup, train_no_coup)
+
+# Other 30%. 
+test_coup <- anti_join(coup_cases, train_coup)
+test_no_coup <- anti_join(no_coup_cases, train_no_coup)
+testing <- bind_rows(test_coup, test_no_coup)
+rm(no_coup_cases, coup_cases)
+rm(train_coup, train_no_coup)
+rm(test_coup, test_no_coup)
+
+# Run logit model 
+training_logit <- feglm(coup_attempt ~ 
+                          pres_elec_lag + polyarchy + polyarchy2 + milreg + #2.a. domestic political
+                          lgdppcl + ch_gdppcl + #2.b. domestic economic
+                          cw + mobilization + #2.c. political instability
+                          solqual +  #2.d. military vars
+                          cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                          pce + pce2 + pce3, #autocorrelation vars, 
+                        data = training, family = 'binomial', cluster = ~ccode)
+summary(training_logit)
+
+# Predicting test data 
+predicted_logit <- predict(training_logit, newdata = testing, type = 'response')
+
+# Convert probabilities to binary class labels
+predicted_classes <- ifelse(predicted_logit > 0.001, 1, 0)
+predicted_classes <- factor(predicted_classes, levels = c(0, 1)) 
+actual_classes <- factor(training$coup_attempt, levels = c(0, 1))
+
+# Create confusion matrix
+conf_matrix <- confusionMatrix(as.factor(predicted_classes), as.factor(testing$coup_attempt))
+print(conf_matrix)
+
+rm(training, testing)
+rm(conf_matrix, training_logit, actual_classes, predicted_classes, predicted_logit)
+
