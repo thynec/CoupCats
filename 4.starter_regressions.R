@@ -64,6 +64,15 @@ rm(base_data.2e)
 
 write.csv(base_data, "base_data.csv", row.names = FALSE)
 
+# Filtering out rows with NAs. 
+columns <- c("pres_elec_lag", "polyarchy", "polyarchy2", 
+             "lgdppcl", "ch_gdppcl", 
+             "cw", 
+             "cold", "e_asia_pacific", "LA_carrib", "MENA", "N_america", "S_asia", "Sub_africa", 
+             "pce", "pce2", "pce3")
+
+base_data2 <- base_data[complete.cases(base_data[, ..columns]), ] 
+
 #------------------------------------------------------------------------------------------------#  
 #Baseline model
 #------------------------------------------------------------------------------------------------#  
@@ -84,138 +93,76 @@ summary(coup_logit)
 #Pretty table of baseline model - NEED to replace var names with labels at some point
 #------------------------------------------------------------------------------------------------#  
 
-# Logit table using GT, error message on color scale, fix rounding and which "statistic"
-# Convert model summary into a tidy dataframe
+# Marginal effects 
+mfxL <- margins(coup_logit, type = 'response') # Effect of each predictor expressed as a probability (Average Marginal Effect)
+summary(mfxL) # R rounds to 0 (virtually no effect)--remember, coups are rare events! 
+print(mfxL, digits = 6) 
+
+# Calculate DFBETAs
+dfbetas_values <- dfbetas(coup_logit) # Large DFBETAs indicate a specific observation (row) has a strong influence.
+
+# Find observations with any DFBETA greater than 2/sqrt(n). 
+influential_obsL <- apply(abs(dfbetas_values), 1, function(x) any(x > 2)) # 2 is arbitrary; common threshold for influence.
+
+# Display influential observations
+which(influential_obsL) # No single observation significantly alters the model. 
+rm(dfbetas_values, influential_obsL)
+
+# Building logit table
 model_summary <- tidy(coup_logit) 
-# Create the table
-formatted_table <- gt(model_summary)
-# Format numerical columns
+formatted_table <- gt(model_summary) 
 formatted_table <- fmt_number(
   formatted_table,
   columns = c("estimate", "std.error", "statistic", "p.value"),
-  decimals = 4) #may want more or scientific notation
-# Bold column labels
+  decimals = 4) 
 formatted_table <- tab_style(
   formatted_table,
   style = list(cell_text(weight = "bold")),
   locations = cells_column_labels())
-# Highlight significant p-values in red
 formatted_table <- data_color(
   formatted_table,
   columns = "p.value",
   colors = col_numeric(
     palette = c("red", "black"),
     domain = c(0, 0.05)))
-# Title and Subtitle
 formatted_table <- tab_header(
   formatted_table,
   title = md("**Logistic Regression Summary**"),
   subtitle = md("*Effect of Social and Military variables on Coup Attempts")) 
-# Footer note
 formatted_table <- tab_source_note(
   formatted_table,
   source_note = "Significant p-values are highlighted in red.")
+
 print(formatted_table)
+rm(model_summary, formatted_table)
 
-#------------------------------------------------------------------------------------------------#  
-#03/19/25 note from Clay: Looks like things got haphazard with below. Can someone (Kade?) clean this up so we can see what's going on?
-#------------------------------------------------------------------------------------------------#  
-
-
-
-
-
-
-
-#for confusion matrix 
-columns <- c("pres_elec_lag", "polyarchy", "polyarchy2", 
-             "lgdppcl", "ch_gdppcl", 
-             "cw", 
-             "cold", "e_asia_pacific", "LA_carrib", "MENA", "N_america", "S_asia", "Sub_africa", 
-             "pce", "pce2", "pce3")
-
-base_data2 <- base_data[complete.cases(base_data[, ..columns]), ] #for confusion matrix
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#marginal effects
-mfxL <- margins(coup_logit, type = 'response') #marginal effects
-summary(mfxL) # R rounds to 0
-print(mfxL, digits = 6) # do this to see actual values
-
-
-
-# Calculate DFBETAs
-dfbetas_values <- dfbetas(coup_logit)
-
-# Find observations with any DFBETA greater than 2/sqrt(n) in absolute value. Can change to 2 for basic threshold
-influential_obsL <- apply(abs(dfbetas_values), 1, function(x) any(x > 2))
-
-# Display influential observations
-which(influential_obsL)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Marginal effects table using GT
-# Convert to a tidy dataframe
+# Building marginal effects table. 
 mfxL_df <- as.data.frame(summary(mfxL))
-# Create the table
 formatted_table <- gt(mfxL_df)
-# Format numerical columns for readability
 formatted_table <- fmt_number(
   formatted_table,
   columns = c("AME", "SE", "z", "p", "lower", "upper"),
   decimals = 4)
-# Bold column labels
 formatted_table <- tab_style(
   formatted_table,
   style = list(cell_text(weight = "bold")),
   locations = cells_column_labels())
-# Highlight significant p-values in red (p < 0.05)
 formatted_table <- data_color(
   formatted_table,
   columns = "p",
   colors = scales::col_numeric(
     palette = c("red", "black"),
     domain = c(0, 0.05)))
-# Add title and subtitle
 formatted_table <- tab_header(
   formatted_table,
   title = md("**Marginal Effects Summary**"),
   subtitle = md("*Average Marginal Effects from Logistic Regression*"))
-# Add footer note
 formatted_table <- tab_source_note(
   formatted_table,
   source_note = "Significant p-values are highlighted in red.")
-# Print the formatted table
+
 print(formatted_table)
-
-
+rm(formatted_table)
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #probit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
@@ -445,36 +392,5 @@ bptest(OLS_coup)
 
 
 
-# --------------------------- Test, Train, Split --------------------------- #
 
-library(caret)
-set.seed(9)
-
-# Taking 70% randomly, stratifying by coup attempt. 
-training <- base_data2 %>%
-  group_by(coup_attempt) %>%
-  sample_frac(0.7) %>%
-  ungroup()
-
-# Other 30%. 
-testing <- anti_join(base_data2, training)
-
-# Running logit model. 
-training_logit <- feglm(
-  coup_attempt ~ pres_elec_lag + polyarchy + polyarchy2 + milreg + 
-    lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
-    cold + e_asia_pacific + LA_carrib + MENA + N_america + 
-    S_asia + Sub_africa + pce + pce2 + pce3,
-  data = training, family = 'binomial', cluster = ~ccode)
-summary(training_logit)
-
-# Predicting based on test data. 
-predicted_logit <- predict(training_logit, newdata = testing, type = 'response')
-predicted_classes <- ifelse(predicted_logit > 0.001, 1, 0) # Converting probabilities to binary class labels. 
-
-# Create confusion matrix
-conf_matrix <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)), factor(testing$coup_attempt, levels = c(0, 1)))
-print(conf_matrix)
-rm(training, testing, training_logit, conf_matrix, predicted_logit, predicted_classes)
-
-
+#Other diagnositc tests maybe 
