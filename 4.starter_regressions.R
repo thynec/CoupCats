@@ -421,3 +421,179 @@ conf_matrix <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)), fact
 print(conf_matrix) # Switch specificity & sensitivity in your head (positive class = 0)
 
 rm(training, testing, training_logit, conf_matrix, predicted_logit, predicted_classes)
+
+
+                          
+# --------------------------- Test, Train, Split --------------------------- #
+
+set.seed(9)
+
+remove_perc = 0.20
+cutoff = 0.038 
+oversample_factor = 5
+
+# Under-sampling: Remove months from non-coup countries based on remove_perc. 
+coup_countries <- base_data2 %>%
+  filter(euro_cent_asia == 1 | N_america == 1) %>%
+  group_by(ccode) %>%
+  summarise(has_coup = any(coup_attempt == 1), .groups = "drop")
+df2 <- base_data2 %>%
+  left_join(coup_countries, by = "ccode") %>%
+  mutate(has_coup = !is.na(has_coup) & has_coup) # New variable. 
+
+# Separating data into different groups. 
+non_coup_data <- df2 %>% 
+  filter((euro_cent_asia == 1 | N_america == 1) & has_coup == FALSE)
+other_countries <- df2 %>%
+  filter((euro_cent_asia == 0 & N_america == 0) | has_coup == TRUE)
+
+# Randomly removing observations from non-coup countries. 
+non_coup_data <- non_coup_data %>%
+  sample_frac(1 - remove_perc)
+
+model_data <- bind_rows(other_countries, non_coup_data) %>%
+  select(-has_coup)
+
+# Oversampling coup cases using bootstrapping. 
+coup_cases <- model_data %>% 
+  filter(coup_attempt == 1)
+no_coup_cases <- model_data %>% 
+  filter(coup_attempt == 0)
+coup_bootstrap <- coup_cases %>%
+  sample_n(size = nrow(coup_cases) * oversample_factor, replace = TRUE)
+balanced_data <- bind_rows(coup_bootstrap, no_coup_cases)
+
+# Splitting the data into training and testing sets. 
+training <- balanced_data %>%
+  group_by(coup_attempt) %>%
+  sample_frac(0.7) %>%
+  ungroup()
+testing <- anti_join(balanced_data, training)
+
+# Running the logistic regression model. 
+training_logit <- feglm(coup_attempt ~ 
+                          pres_elec_lag + polyarchy + polyarchy2 + milreg + 
+                          lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
+                          cold + e_asia_pacific + LA_carrib + MENA + N_america + 
+                          S_asia + Sub_africa + pce + pce2 + pce3, 
+                        data = training, family = 'binomial', cluster = ~ccode)
+
+# Predicting based on test data
+predicted_logit <- predict(training_logit, newdata = testing, type = 'response')
+predicted_classes <- ifelse(predicted_logit > cutoff, 1, 0) 
+
+# Creating confusion matrix
+conf_matrix <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)), factor(testing$coup_attempt, levels = c(0, 1)))
+print(conf_matrix) # Switch specificity & sensitivity in your head (positive class = 0)
+
+
+# --------------------------- Model developing --------------------------- #
+
+# Define transformations. 
+remove_perc_range <- seq(0, 1, by = 0.05) # Range for removing non-coup cases
+cutoff_range <- seq(0.001, 0.05, by = 0.001) # Range for cutoff values
+oversample_range <- 1:5 # Range for oversampling coup cases 
+
+# Create an empty results data frame
+results <- data.frame(remove_perc = numeric(),
+                      cutoff = numeric(),
+                      oversample_factor = numeric(),
+                      accuracy = numeric(),
+                      specificity = numeric(),
+                      sensitivity = numeric())
+
+set.seed(9) # For replication. 
+
+library(pbapply)
+progress_bar <- pboptions(type = 3)  # Simple progress bar. 
+
+# Looping through remove_perc values. 
+for (remove_perc in remove_perc_range) {
+  
+  # Looping through cutoff values. 
+  for (cutoff in cutoff_range) {
+    
+    # Looping through over-sampling values. 
+    for (oversample_factor in oversample_range) {
+      
+      # Under-sampling: Remove months from non-coup countries based on remove_perc. 
+      coup_countries <- base_data2 %>%
+        filter(euro_cent_asia == 1 | N_america == 1) %>%
+        group_by(ccode) %>%
+        summarise(has_coup = any(coup_attempt == 1), .groups = "drop")
+      df <- base_data2 %>%
+        left_join(coup_countries, by = "ccode") %>%
+        mutate(has_coup = !is.na(has_coup) & has_coup) # New variable. 
+      
+      # Separating data into different groups. 
+      non_coup_data <- df %>% 
+        filter((euro_cent_asia == 1 | N_america == 1) & has_coup == FALSE)
+      other_countries <- df %>%
+        filter((euro_cent_asia == 0 & N_america == 0) | has_coup == TRUE)
+      
+      # Randomly removing observations from non-coup countries. 
+      non_coup_data <- non_coup_data %>%
+        sample_frac(1 - remove_perc)
+      
+      model_data <- bind_rows(other_countries, non_coup_data) %>%
+        select(-has_coup)
+      
+      # Oversampling coup cases using bootstrapping. 
+      coup_cases <- model_data %>% filter(coup_attempt == 1)
+      no_coup_cases <- model_data %>% filter(coup_attempt == 0)
+      coup_bootstrap <- coup_cases %>%
+        sample_n(size = nrow(coup_cases) * oversample_factor, replace = TRUE)
+      balanced_data <- bind_rows(coup_bootstrap, no_coup_cases)
+      
+      # Splitting the data into training and testing sets. 
+      training <- balanced_data %>%
+        group_by(coup_attempt) %>%
+        sample_frac(0.7) %>%
+        ungroup()
+      testing <- anti_join(balanced_data, training)
+      
+      # Running the logistic regression model. 
+      training_logit <- feglm(coup_attempt ~ 
+                                pres_elec_lag + polyarchy + polyarchy2 + milreg + 
+                                lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
+                                cold + e_asia_pacific + LA_carrib + MENA + N_america + 
+                                S_asia + Sub_africa + pce + pce2 + pce3, 
+                              data = training, family = 'binomial', cluster = ~ccode)
+      
+      # Predicting based on test data
+      predicted_logit <- predict(training_logit, newdata = testing, type = 'response')
+      predicted_classes <- ifelse(predicted_logit > cutoff, 1, 0) 
+      
+      # Creating confusion matrix
+      conf_matrix <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)), factor(testing$coup_attempt, levels = c(0, 1)))
+      
+      # Storing the results. 
+      results <- rbind(results, data.frame(remove_perc = remove_perc, 
+                                           cutoff = cutoff, 
+                                           oversample_factor = oversample_factor,
+                                           accuracy = conf_matrix$overall['Accuracy'],
+                                           specificity = conf_matrix$byClass['Specificity'],
+                                           sensitivity = conf_matrix$byClass['Sensitivity']))
+      
+      # Cleaning up for the next iteration. 
+      rm(training, testing, training_logit, conf_matrix, predicted_classes, predicted_logit, balanced_data)
+    }
+  }
+}
+
+# Exporting to Excel. 
+write.csv(results, "model_results.csv")
+
+# Scatter plot of Sensitivity vs Specificity
+ggplot(results, aes(x = specificity, y = sensitivity)) +
+  geom_point(aes(color = oversample_factor, size = remove_perc), alpha = 0.7) +
+  labs(title = "Sensitivity vs Specificity",
+       x = "Specificity",
+       y = "Sensitivity") +
+  theme_minimal() +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme(legend.position = "bottom")
+
+df <- results %>%
+  filter(sensitivity > 0.8) %>%
+  filter(specificity > 0.8)
