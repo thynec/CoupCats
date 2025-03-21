@@ -37,8 +37,9 @@ library(emmeans) # Estimated marginal means and model comparisons
 library(olsrr) # Linear regression diagnostics and model selection
 library(lme4) # Linear and generalized linear mixed-effects models
 library(MASS) # Various statistical models and methods
-library(margins) #calculate marginal effects
-library(fixest) #for robust SEs
+library(margins) # Calculate marginal effects
+library(fixest) # For robust SEs
+library(caret) # For confusion matrix 
 
 # Spatial Analysis
 library(sf) # Handle spatial data and analysis
