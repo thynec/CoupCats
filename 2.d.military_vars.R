@@ -226,6 +226,11 @@ PRM <- PRM %>%
 
 PRM <- PRM %>% 
   rename(ccode = country_cown) #making our lives easier
+
+PRM$ccode <- as.numeric(PRM$ccode) #Convert PRM$ccode from Character to Numeric
+
+base_data <- base_data %>% 
+  left_join(PRM, by=c("ccode", "year")) #just merge then
   
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
