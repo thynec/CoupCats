@@ -209,6 +209,23 @@ base_data <- base_data %>%
   mutate(milper=log(milper_spliced+1)) %>%
   mutate(solqual=milex/(milper+1)) %>%
   select(-milex_spliced, -milper_spliced)
+
+#------------------------------------------------------------------------------------------------#
+# military integration into politics (Croissan/Eschenauer/Kamerling Euro Pol Science - PRM Dataset)
+#------------------------------------------------------------------------------------------------#  
+
+url <- "https://m3-militarization.com/files/M3-Dataset-V1.xlsx"
+destfile <- "M3_Dataset_V1.xlsx"
+curl::curl_download(url, destfile)
+PRM <- read_excel(destfile)
+rm(url, destfile)
+
+PRM <- PRM %>% 
+  dplyr::select(country_cown, year, mil_origin, mil_leader, mil_mod, mil_veto, mil_impun, mil_repress, mil_repress_count) #keeping only Political Militarization variables
+#which of these varaibles do you want us to focus?
+
+PRM <- PRM %>% 
+  rename(ccode = country_cown) #making our lives easier
   
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
