@@ -392,10 +392,10 @@ bptest(OLS_coup)
 
 # --------------------------- Model developing --------------------------- #
 
-# Define transformations. 
-remove_perc_range <- seq(0, 1, by = 0.05) # Range for removing non-coup cases
-cutoff_range <- seq(0.001, 0.05, by = 0.001) # Range for cutoff values
-oversample_range <- 1:5 # Range for oversampling coup cases 
+# Define transformations
+remove_perc_range <- seq(0, 1, by = 0.05) 
+cutoff_range <- seq(0.001, 0.05, by = 0.005) 
+oversample_range <- 1:5 
 
 # Create an empty results data frame
 results <- data.frame(remove_perc = numeric(),
@@ -407,9 +407,6 @@ results <- data.frame(remove_perc = numeric(),
 
 set.seed(9) # For replication. 
 
-library(pbapply)
-progress_bar <- pboptions(type = 3)  # Simple progress bar. 
-
 # Looping through remove_perc values. 
 for (remove_perc in remove_perc_range) {
   
@@ -419,41 +416,42 @@ for (remove_perc in remove_perc_range) {
     # Looping through over-sampling values. 
     for (oversample_factor in oversample_range) {
       
-      # Under-sampling: Remove months from non-coup countries based on remove_perc. 
-      coup_countries <- base_data2 %>%
+      # Splitting the data into training and testing sets.
+      set.seed(9)
+      
+      training <- base_data2 %>%
+        group_by(coup_attempt) %>%
+        sample_frac(0.7) %>%
+        ungroup()
+      testing <- anti_join(base_data2, training)
+      
+      # Under-sampling: Remove months from non-coup countries based on remove_perc.
+      coup_countries <- training %>%
         filter(euro_cent_asia == 1 | N_america == 1) %>%
         group_by(ccode) %>%
         summarise(has_coup = any(coup_attempt == 1), .groups = "drop")
-      df <- base_data2 %>%
+      df <- training %>%
         left_join(coup_countries, by = "ccode") %>%
-        mutate(has_coup = !is.na(has_coup) & has_coup) # New variable. 
-      
-      # Separating data into different groups. 
-      non_coup_data <- df %>% 
+        mutate(has_coup = !is.na(has_coup) & has_coup)  # New variable.
+      non_coup_data <- df %>% # Separating data into different groups.
         filter((euro_cent_asia == 1 | N_america == 1) & has_coup == FALSE)
       other_countries <- df %>%
         filter((euro_cent_asia == 0 & N_america == 0) | has_coup == TRUE)
       
-      # Randomly removing observations from non-coup countries. 
-      non_coup_data <- non_coup_data %>%
+      non_coup_data <- non_coup_data %>% # Randomly removing observations from non-coup countries. 
         sample_frac(1 - remove_perc)
       
       model_data <- bind_rows(other_countries, non_coup_data) %>%
         select(-has_coup)
       
-      # Oversampling coup cases using bootstrapping. 
-      coup_cases <- model_data %>% filter(coup_attempt == 1)
-      no_coup_cases <- model_data %>% filter(coup_attempt == 0)
+      # Oversampling coup cases using bootstrapping.
+      coup_cases <- model_data %>% 
+        filter(coup_attempt == 1)
+      no_coup_cases <- model_data %>% 
+        filter(coup_attempt == 0)
       coup_bootstrap <- coup_cases %>%
         sample_n(size = nrow(coup_cases) * oversample_factor, replace = TRUE)
       balanced_data <- bind_rows(coup_bootstrap, no_coup_cases)
-      
-      # Splitting the data into training and testing sets. 
-      training <- balanced_data %>%
-        group_by(coup_attempt) %>%
-        sample_frac(0.7) %>%
-        ungroup()
-      testing <- anti_join(balanced_data, training)
       
       # Running the logistic regression model. 
       training_logit <- feglm(coup_attempt ~ 
@@ -479,13 +477,14 @@ for (remove_perc in remove_perc_range) {
                                            sensitivity = conf_matrix$byClass['Sensitivity']))
       
       # Cleaning up for the next iteration. 
-      rm(training, testing, training_logit, conf_matrix, predicted_classes, predicted_logit, balanced_data)
+      rm(coup_bootstrap, coup_cases, coup_countries, model_data)
     }
   }
 }
 
-# Exporting to Excel. 
-write.csv(results, "model_results.csv")
+write.csv(results, "model_results.csv", row.names = FALSE)
+
+results <- read.csv("model_results.csv")
 
 # Scatter plot of Sensitivity vs Specificity
 ggplot(results, aes(x = specificity, y = sensitivity)) +
@@ -496,3 +495,165 @@ ggplot(results, aes(x = specificity, y = sensitivity)) +
   theme_minimal() +
   scale_color_gradient(low = "blue", high = "red") +
   theme(legend.position = "bottom")
+
+rm(balanced_data, conf_matrix, df, no_coup_cases, non_coup_data, other_countries, training, testing, training_logit)
+rm(cutoff, cutoff_range, oversample_factor, oversample_range, predicted_classes, predicted_logit, remove_perc, remove_perc_range)
+
+# --------------------------- Test, Train, Split --------------------------- #
+
+set.seed(9)
+
+remove_perc = 0.20
+cutoff = 0.038 
+oversample_factor = 5
+
+# Splitting the data into training and testing sets. 
+training <- base_data2 %>%
+  group_by(coup_attempt) %>%
+  sample_frac(0.7) %>%
+  ungroup()
+testing <- anti_join(base_data2, training)
+
+# Under-sampling: Remove months from non-coup countries based on remove_perc. 
+coup_countries <- training %>%
+  filter(euro_cent_asia == 1 | N_america == 1) %>%
+  group_by(ccode) %>%
+  summarise(has_coup = any(coup_attempt == 1), .groups = "drop")
+df2 <- training %>%
+  left_join(coup_countries, by = "ccode") %>%
+  mutate(has_coup = !is.na(has_coup) & has_coup) # New variable. 
+
+# Separating data into different groups. 
+non_coup_data <- df2 %>% 
+  filter((euro_cent_asia == 1 | N_america == 1) & has_coup == FALSE)
+other_countries <- df2 %>%
+  filter((euro_cent_asia == 0 & N_america == 0) | has_coup == TRUE)
+rm(df2)
+
+# Randomly removing observations from non-coup countries. 
+non_coup_data <- non_coup_data %>%
+  sample_frac(1 - remove_perc)
+
+model_data <- bind_rows(other_countries, non_coup_data) %>%
+  select(-has_coup)
+
+# Oversampling coup cases using bootstrapping. 
+coup_cases <- model_data %>% 
+  filter(coup_attempt == 1)
+no_coup_cases <- model_data %>% 
+  filter(coup_attempt == 0)
+coup_bootstrap <- coup_cases %>%
+  sample_n(size = nrow(coup_cases) * oversample_factor, replace = TRUE)
+balanced_data <- bind_rows(coup_bootstrap, no_coup_cases)
+rm(coup_cases, no_coup_cases, coup_bootstrap)
+
+# Running the logistic regression model. 
+training_logit <- feglm(coup_attempt ~ 
+                          pres_elec_lag + polyarchy + polyarchy2 + milreg + 
+                          lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
+                          cold + e_asia_pacific + LA_carrib + MENA + N_america + 
+                          S_asia + Sub_africa + pce + pce2 + pce3, 
+                        data = training, family = 'binomial', cluster = ~ccode)
+
+# Predicting based on test data
+predicted_logit <- predict(training_logit, newdata = testing, type = 'response')
+predicted_classes <- ifelse(predicted_logit > cutoff, 1, 0) 
+
+# Creating confusion matrix
+conf_matrix <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)), factor(testing$coup_attempt, levels = c(0, 1)))
+print(conf_matrix) # Switch specificity & sensitivity in your head (positive class = 0)
+rm(training, testing, training_logit, conf_matrix)
+
+# --------------------------- K-Fold Cross Validation --------------------------- #
+
+# set.seed(123)
+k_folds <- 5 # Splits data into 5 equal parts, which takes turns being the test set. 
+remove_perc <- 0
+cutoff <- 0.006 
+oversample_factor <- 1
+
+results <- data.frame(Fold = integer(), # Empty data frame for results 
+                         Accuracy = numeric(),
+                         Sensitivity = numeric(),
+                         Specificity = numeric())
+
+
+folds <- sample(rep(1:k_folds, length.out = nrow(base_data2))) # Randomly assigns each observation to fold
+
+# K-Fold Cross Validation Loop
+for (i in 1:k_folds) {
+  cat("Processing Fold", i, "...\n") # Progress message
+  
+  # Split training & testing data
+  training <- base_data2[folds != i, ]
+  testing <- base_data2[folds == i, ]
+  
+  # Remove missing values
+  training <- na.omit(training)
+  testing <- na.omit(testing)
+
+  # Separate coup & non-coup cases
+  coup_countries <- training %>%
+    filter(euro_cent_asia == 1 | N_america == 1) %>%
+    group_by(ccode) %>%
+    summarise(has_coup = any(coup_attempt == 1), .groups = "drop")
+  df2 <- training %>%
+    left_join(coup_countries, by = "ccode") %>%
+    mutate(has_coup = !is.na(has_coup) & has_coup) # New variable
+  
+  # Separating data into different groups
+  non_coup_data <- df2 %>% 
+    filter((euro_cent_asia == 1 | N_america == 1) & has_coup == FALSE)
+  other_countries <- df2 %>%
+    filter((euro_cent_asia == 0 & N_america == 0) | has_coup == TRUE)
+  rm(df2)
+  
+  # Randomly removing observations from non-coup countries
+  non_coup_data <- non_coup_data %>%
+    sample_frac(1 - remove_perc)
+  
+  model_data <- bind_rows(other_countries, non_coup_data) %>%
+    select(-has_coup)
+  
+  # Oversampling coup cases using bootstrapping
+  coup_cases <- model_data %>% 
+    filter(coup_attempt == 1)
+  no_coup_cases <- model_data %>% 
+    filter(coup_attempt == 0)
+  coup_bootstrap <- coup_cases %>%
+    sample_n(size = nrow(coup_cases) * oversample_factor, replace = TRUE)
+  balanced_data <- bind_rows(coup_bootstrap, no_coup_cases)
+  rm(coup_cases, no_coup_cases, coup_bootstrap)
+  
+  # Fit logistic regression model
+  model <- feglm(coup_attempt ~ pres_elec_lag + polyarchy + polyarchy2 + milreg + 
+                 lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
+                 cold + e_asia_pacific + LA_carrib + MENA + N_america + 
+                 S_asia + Sub_africa + pce + pce2 + pce3, 
+               data = balanced_data, family = "binomial")
+  
+  # Make predictions
+  predicted_probs <- predict(model, newdata = testing, type = "response")
+  predicted_classes <- ifelse(predicted_probs > cutoff, 1, 0)
+  
+  # Confusion matrix
+  conf_matrix <- confusionMatrix(
+    factor(predicted_classes, levels = c(0, 1)), 
+    factor(testing$coup_attempt, levels = c(0, 1))
+  )
+  
+  # Store results
+  results <- rbind(results, data.frame(
+    Fold = i,
+    Accuracy = conf_matrix$overall["Accuracy"],
+    Sensitivity = conf_matrix$byClass["Sensitivity"],
+    Specificity = conf_matrix$byClass["Specificity"]
+  ))
+}
+
+# Print results
+print(results)
+rm(cutoff, folds, i, k_folds, oversample_factor, predicted_classes, predicted_probs, remove_perc)
+rm(coup_countries, non_coup_data, testing, training, balanced_data, model, conf_matrix, other_countries, model_data)
+
+
