@@ -1,5 +1,7 @@
 # -------------------------- Baseline Data ------------------------------ #
 
+rm(list=ls())
+
 base_data <- read_csv("https://www.uky.edu/~clthyn2/base_data.csv") # Reading in base data. 
 
 # Country codes (Thyne 2022). 
@@ -8,6 +10,17 @@ destfile <- "replace_ccode_country.xls"
 curl::curl_download(url, destfile)
 ccodes <- read_excel(destfile)
 rm(url, destfile)
+
+#update so we have most recent month: 04/2025
+df <- base_data %>%
+  group_by(country) %>%
+  filter(year==2024) %>%
+  mutate(year=year+1) %>%
+  filter(month<5) %>%
+  ungroup()
+base_data <- base_data %>%
+  full_join(df, by=c("ccode", "year", "month", "country"))
+rm(df)
 
 # Coup data (Powell & Thyne 2011). 
 # Reading in data. 
