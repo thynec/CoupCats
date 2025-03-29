@@ -20,7 +20,7 @@ rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
 #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -86,12 +86,10 @@ vdem <- vdem %>%
          int_censor = v2smgovfilprc, # Between 2000 to 2023.
          forgov_misinfo = v2smfordom) %>% # Between 2000 to 2023.
   mutate(year=year+1) %>% #just lagged
-  filter(year >= 1950)
+  filter(year >= 1949)
 vdem <- vdem %>% # Merging in ccodes. 
   left_join(ccodes, by = c("year", "country")) %>%
   filter(!is.na(ccode)) # Non-state actors. 
-
-#end bringing in Vdem, cleaning it up
 
 #------------------------------------------------------------------------------------------------#
 #Regime type (v2x_regime); from Vdem
@@ -110,7 +108,7 @@ regime_type <- regime_type %>%
   distinct() # No duplicates
 label(regime_type$regime_type) <- "0 = Closed autocracy, 1 = Electoral autocracy, 2 = Electoral democracy, 3 = Liberal Democracy"
 
-# 2.3 Organizing variables for regression 
+#Organizing variables for regression 
 regime_type <- regime_type %>%
   mutate(
     closed_autocracy = ifelse(regime_type == 0, 1, 0),
@@ -132,10 +130,16 @@ table(regime_type$regime_type, regime_type$liberal_democracy)
 regime_type <- regime_type %>%
   select(-regime_type)
 
-# 2.4. Merging into data set. 
+#Merging into data set. 
 base_data <- base_data %>% 
   left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
 rm(regime_type)    
+
+#investigate missing data
+check <- base_data %>%
+  filter(is.na(closed_autocracy))
+table(check$country) #looks good; up to most recent month
+rm(check)
 
 #------------------------------------------------------------------------------------------------#
 #Regime type (v2x_polyarchy); from Vdem
@@ -155,6 +159,12 @@ vdem_regime2 <- vdem %>%
 base_data <- base_data %>% 
   left_join(vdem_regime2, by = c("ccode", "year")) 
 rm(vdem, vdem_regime2)
+
+#check missing
+check <- base_data %>%
+  filter(is.na(polyarchy2))
+table(check$country) #looks good; up to most recent month
+rm(check)
 
 #------------------------------------------------------------------------------------------------#
 #military regime; take from vdem
@@ -187,6 +197,18 @@ table(check$country) #probably good, but also might want to double check: Belize
 base_data <- base_data %>%
   rename(milit_dimension=milit)
 rm(check, milit, vdem_og)
+
+#check missing
+check <- base_data %>%
+  filter(is.na(milit_dimension))
+table(check$country) #need to fill down for 2025 months for all countries; assume regime type continues from last AY
+base_data <- base_data %>%
+  ungroup() %>%
+  group_by(ccode) %>%
+  fill(milit_dimension, .direction="down")
+check <- base_data %>%
+  filter(is.na(milit_dimension))
+table(check$country) #looks good
 
 #------------------------------------------------------------------------------------------------#
 #elections; from Vdem
@@ -301,7 +323,7 @@ check <- milreg %>%
   arrange(ccode, year, month) %>%
   mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year) & month==lag(month), 1, NA))
 table(check$problem)
-  #have 124 cases of 2+ coding in same month; see if they're all milreg...
+#have 124 cases of 2+ coding in same month; see if they're all milreg...
 check <- milreg %>%
   arrange(ccode, year, month) %>%
   select(-reign_type) %>%
