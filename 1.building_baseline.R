@@ -1,6 +1,6 @@
 # -------------------------- Baseline Data ------------------------------ #
 
-rm(list=ls())
+rm(list=ls()) 
 
 base_data <- read_csv("https://www.uky.edu/~clthyn2/base_data.csv") # Reading in base data. 
 
