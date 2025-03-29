@@ -175,6 +175,24 @@
       ch_gdppcl="%ch GDP/cap, WDI+vdem, t-1")
   rm(df)  
   
+#------------------------------------------------------------------------------------------------#      
+#building CPI
+#------------------------------------------------------------------------------------------------# 
+
+url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
+destfile <- "FP_CPI.xls"
+curl::curl_download(url, destfile)
+FP_CPI <- read_excel(destfile)
+View(FP_CPI)
+
+colnames(FP_CPI) <- FP_CPI[3, ]
+FP_CPI <- FP_CPI[-c(1:3), ]
+
+url <- "http://www.uky.edu/~clthyn2/mitchell_thyne_CMPS2010.zip"
+download.file(url, "data.zip")
+unzip("data.zip", exdir="data")
+unlink("data.zip")
+CPI <- read_dta("data/mitchell_thyne_CMPS2010/mitchell_thyne_cmps1.dta")
   
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
