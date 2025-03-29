@@ -12,6 +12,7 @@ install.packages("haven") # Imports & exports SPSS, SAS, and Stata files
 install.packages("janitor") # Cleans column names and tidies data
 install.packages("Hmisc") # For labeling data. 
 install.packages("labelled") # For labeling data.
+install.packages("lubridate") # For working with dates
 install.packages("pltesim") #For setting up bctcs peace year
 install.packages('readxl')
 install.packages('broom')
