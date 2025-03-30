@@ -134,6 +134,56 @@ write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 
 #Start with COW
 
+# -------------------------- Alliances ----------------------------- #
+
+url <- "http://www.atopdata.org/uploads/6/9/1/3/69134503/atop_5.1__.csv_.zip"
+download.file (url, "atop.zip")#Downloads the dataset and saves it as data.zip in working directory.
+unzip ("atop.zip", exdir = "atop") #Extracts the contents of the ZIP file into a folder named data.
+atop <- read_csv("atop/ATOP 5.1 (.csv)/atop5_1m.csv")
+rm(url)
+unlink("atop.zip", recursive = TRUE )
+
+atop <- atop %>%
+  dplyr::select(member, yrent, moent, dayent, yrexit, moexit, dayexit) %>% 
+  filter(yrexit >= 1950) %>%  #removing alliances that ended before 1950
+  rename(ccode = member)
+
+
+atop <- atop %>%
+  rowwise() %>%
+  mutate(
+    # Generate a sequence of years from yrent to yrexit (or 2025 if yrexit is NA or 0)
+    years = list(seq(yrent, ifelse(is.na(yrexit) | yrexit == 0, 2025, yrexit))),
+    months = list(1:12)  # Always consider all months
+  ) %>%
+  unnest(years) %>%  # Expand the years
+  unnest(months) %>%  # Expand the months
+  filter(
+    # Include only valid months: started in yrent/moent and hasn't ended yet
+    (years > yrent | (years == yrent & months >= moent)) &  # Entry condition
+      # Exit condition considering dayexit is NA or missing (means alliance ended at month-end)
+      (is.na(yrexit) | yrexit == 0 | years < yrexit | (years == yrexit & months < moexit) | 
+         (years == yrexit & months == moexit & (is.na(dayexit) | dayexit == 0)) |
+         # Specifically handle alliances still in effect as of December 31, 2018
+         (yrexit == 0 & moexit == 0 & dayexit == 0))
+  ) %>%
+  rename(year = years, month = months) %>%
+  mutate(
+    # Add a column indicating whether the country had an alliance (1) or not (0)
+    alliance_active = 1  # All rows in this expanded data set are valid alliances
+  ) %>%
+  dplyr::select(ccode, year, month, alliance_active)
+
+# Merge expanded atop with base_data
+base_data <- base_data %>%
+  left_join(atop, by = c("ccode", "year", "month")) %>%
+  mutate(
+    # If no alliance, mark as 0
+    alliance_active = replace_na(alliance_active, 0)
+  )
+rm(atop)
+
+#### Important note about alliances data: The ATOP dataset treats alliances that were still valid as of December 31, 2018 (they use yrexit==0), as ongoing. This means that if an alliance ended after 2018, it is still considered ongoing and will be marked as active in the dataset. 
 
 
 
