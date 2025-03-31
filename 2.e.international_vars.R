@@ -120,7 +120,7 @@ rm(base, df)
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
-write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
+#write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################  
 
@@ -156,15 +156,25 @@ df <- wdi %>%
   select(country, year, NE.EXP.GNFS.CD, NE.IMP.GNFS.CD) %>%
   rename(exports = NE.EXP.GNFS.CD) %>%
   rename(imports = NE.IMP.GNFS.CD) %>%
+  mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
+  mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
   mutate(year=year+1) %>%
   mutate(wdi_trade=(imports+exports)) %>%
   mutate(wdi_ltrade=log(wdi_trade+1)) %>%
+  left_join(ccodes, by=c("country", "year"))
+check <- df %>%
+  filter(is.na(ccode))
+table(check$country)
+
+
+%>%
   select
   
   
 #------------------------------------------------------------------------------------------------#
 #alliances
 #------------------------------------------------------------------------------------------------#  
+
 
 url <- "http://www.atopdata.org/uploads/6/9/1/3/69134503/atop_5.1__.csv_.zip"
 download.file (url, "atop.zip")#Downloads the dataset and saves it as data.zip in working directory.
