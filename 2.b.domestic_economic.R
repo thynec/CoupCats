@@ -179,20 +179,38 @@
 #building CPI
 #------------------------------------------------------------------------------------------------# 
 
+#Bringing in CPI data from world bank, using 2010 as base year
 url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
 destfile <- "FP_CPI.xls"
 curl::curl_download(url, destfile)
 FP_CPI <- read_excel(destfile)
 View(FP_CPI)
 
+#Cleaning up dataset
 colnames(FP_CPI) <- FP_CPI[3, ]
 FP_CPI <- FP_CPI[-c(1:3), ]
+FP_CPI <- FP_CPI %>% #rearranging data to correct format
+  pivot_longer(cols = `1960`:`2023`,  
+               names_to = "Year",     
+               values_to = "CPI")   
+FP_CPI$Year <- as.numeric(FP_CPI$Year) #changing Year to numeric
+FP_CPI <- FP_CPI %>% 
+  select(-`Indicator Name`, -`Indicator Code`, -`Country Code`) %>% #deleting unnecessary columns
+  mutate(Year=Year+1) %>% #Lag CPI
+  rename(year = Year) %>%
+  rename(country = `Country Name`) %>% 
+  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
+  filter(!is.na(ccode))
 
+#Bringing in Thyne/Mitchell dataset
 url <- "http://www.uky.edu/~clthyn2/mitchell_thyne_CMPS2010.zip"
 download.file(url, "data.zip")
 unzip("data.zip", exdir="data")
 unlink("data.zip")
 CPI <- read_dta("data/mitchell_thyne_CMPS2010/mitchell_thyne_cmps1.dta")
+
+CPI <- CPI %>%
+  select(ccode1, ccode2, year, CPI_issue, CPI)
   
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
