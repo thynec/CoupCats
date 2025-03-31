@@ -12,7 +12,6 @@
 #regional contagion
 #FDI
 
-
 #Secondary variables:
 #foreign military training (McLauchlin/Seymour/Martel J. Peace Research 2022)
 #international signals
@@ -132,9 +131,40 @@ write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 #add trade
 #------------------------------------------------------------------------------------------------#  
 
-#Start with COW
+#Start with COW; monadic
+  url <- "https://correlatesofwar.org/wp-content/uploads/COW_Trade_4.0.zip"
+  download.file(url, "data.zip")
+  unzip("data.zip", exdir="data")
+  cow <- read_csv("data/COW_Trade_4.0/National_COW_4.0.csv")
+  unlink("data.zip")
+  unlink("data", recursive=TRUE)
+  rm(url)
+cow <- cow %>%
+  mutate(year=year+1) %>% #just lagged
+  mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
+  mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
+  mutate(trade=(imports+exports)) %>%
+  mutate(ltrade=log(trade+1)) %>%
+  select(ccode, statename, year, trade, ltrade)
 
-# -------------------------- Alliances ----------------------------- #
+#Add WDI; monadic
+  indicators <- c("NE.EXP.GNFS.CD", "NE.IMP.GNFS.CD")
+  wdi <- WDI(indicator = indicators, start = 1960, end = 2025, extra = TRUE)
+  rm(indicators)
+  
+df <- wdi %>%
+  select(country, year, NE.EXP.GNFS.CD, NE.IMP.GNFS.CD) %>%
+  rename(exports = NE.EXP.GNFS.CD) %>%
+  rename(imports = NE.IMP.GNFS.CD) %>%
+  mutate(year=year+1) %>%
+  mutate(wdi_trade=(imports+exports)) %>%
+  mutate(wdi_ltrade=log(wdi_trade+1)) %>%
+  select
+  
+  
+#------------------------------------------------------------------------------------------------#
+#alliances
+#------------------------------------------------------------------------------------------------#  
 
 url <- "http://www.atopdata.org/uploads/6/9/1/3/69134503/atop_5.1__.csv_.zip"
 download.file (url, "atop.zip")#Downloads the dataset and saves it as data.zip in working directory.
@@ -193,17 +223,6 @@ rm(atop)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 # -------------------------- Int Signals ----------------------------- #
 
 # 1. WEIS DATA
@@ -220,8 +239,8 @@ weis <- weis %>%
     month = mo   
   ) %>% 
   mutate("z_variable" = scale(weis$gscale)) #getting the z score
-  
-  weis <- weis %>% 
+
+weis <- weis %>% 
   dplyr::select(year,target, month, z_variable)
 
 # 2. COPDAB DATA
@@ -265,7 +284,7 @@ copdab <-  copdab %>%
   mutate("z_variable" = scale(copdab$weight))  # getting the z score
 
 copdab <-  copdab %>% 
-dplyr::select(year,target, month, z_variable)
+  dplyr::select(year,target, month, z_variable)
 
 # 3. Merging both
 int_signals <- weis %>%
@@ -295,47 +314,4 @@ write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################  
 
-#FDI code from world bank
-# Define URL
-url <- "https://api.worldbank.org/v2/en/indicator/BX.KLT.DINV.CD.WD?downloadformat=csv"
 
-# Define file paths
-zip_file <- tempfile(fileext = ".zip")  
-unzip_dir <- tempdir()  
-
-# Download ZIP file
-download.file(url, zip_file, mode = "wb")
-
-# Unzip the file
-unzip(zip_file, exdir = unzip_dir)
-
-# List extracted files to find the correct one
-files <- list.files(unzip_dir, full.names = TRUE)
-print(files)  # Check filenames
-
-# Read the desired CSV file, skipping metadata
-csv_file <- file.path(unzip_dir, "API_BX.KLT.DINV.CD.WD_DS2_en_csv_v2_26165.csv")
-df <- read_csv(csv_file, skip = 4)  # Skip metadata rows
-
-# Rename columns for clarity
-colnames(df)[1:5] <- c("Country_Name", "Country_Code", "Indicator_Name", "Indicator_Code", "X") 
-
-# Convert wide format to long format (had years as seperate columns first)
-fdi <- df %>%
-  dplyr::select(-Indicator_Name, -Indicator_Code, -X) %>%  # Remove unnecessary columns
-  pivot_longer(cols = -c(Country_Name, Country_Code), 
-               names_to = "Year", 
-               values_to = "FDI") %>%
-  mutate(Year = as.integer(Year))  # Convert year to numeric
-
-rm(csv_file, files, unzip_dir, url, zip_file, df)
-
-#cleaning
-fdi <- fdi %>% 
-  dplyr::rename(country = Country_Name, year = Year) %>%
-  dplyr::select(country, year, FDI)
-  
-#merging into base data
-base_data <- base_data %>%
-  left_join(fdi, by = c("country", "year"))
-rm(fdi)
