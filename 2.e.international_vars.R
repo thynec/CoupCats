@@ -6,7 +6,7 @@
 
 #Priority vars:
 #regional dummies - COMPLETED
-#trade
+#trade - COMPLETED
 #cold war dummy - COMPLETED
 #ongoing interstate war
 #regional contagion
@@ -117,16 +117,6 @@ base <- base %>%
 base_data <- base
 rm(base, df)
 
-###############################################################################################
-#Checked through above and ready to produce .csv and upload to github
-#clean up if needed and export
-#write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
-#Now push push the file that was just written to the working directory to github
-###############################################################################################  
-
-
-
-
 #------------------------------------------------------------------------------------------------#
 #add trade
 #------------------------------------------------------------------------------------------------#  
@@ -139,6 +129,11 @@ rm(base, df)
   unlink("data.zip")
   unlink("data", recursive=TRUE)
   rm(url)
+check <- cow %>%
+  select(ccode, year) %>%
+  distinct() #no duplicates
+rm(check)
+  
 cow <- cow %>%
   mutate(year=year+1) %>% #just lagged
   mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
@@ -147,12 +142,62 @@ cow <- cow %>%
   mutate(ltrade=log(trade+1)) %>%
   select(ccode, statename, year, trade, ltrade)
 
+#merge to base_yearly for all to make splicing make sense; then put into base_data (monthly)
+142344/12 #yearly DF should have around 11,862 obs
+yearly <- base_data %>%
+  select(country, ccode, year) %>%
+  distinct() %>%
+  arrange(ccode, year)
+check <- yearly %>%
+  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0))
+summary(check) #good; no duplicates
+rm(check)
+yearly <- yearly %>%
+  left_join(cow, by=c("ccode", "year"))
+check <- yearly %>%
+  filter(country!=statename)
+table(check$country) #looks good
+rm(check, cow)
+yearly <- yearly %>%
+  select(-statename)
+ch <- yearly %>%
+  select(ccode, year) %>%
+  distinct() #no duplicates, we're good
+rm(ch)
+
+#add trade w/ US only from COW
+  url <- "https://correlatesofwar.org/wp-content/uploads/COW_Trade_4.0.zip"
+  download.file(url, "data.zip")
+  unzip("data.zip", exdir="data")
+  cow <- read_csv("data/COW_Trade_4.0/Dyadic_COW_4.0.csv")
+  unlink("data.zip")
+  unlink("data", recursive=TRUE)
+  rm(url)
+#clean; note that these are not directed dyads
+  cow <- cow %>%
+    filter(ccode1==2) %>%
+    mutate(year=year+1) %>%
+    select(ccode=ccode2, flow1, flow2, year) %>%
+    mutate(flow1=ifelse(flow1<0, 0, flow1)) %>%
+    mutate(flow2=ifelse(flow2<0, 0, flow2)) %>%
+    mutate(dtrade=flow1+flow2) %>%
+    mutate(ldtrade=log(dtrade+1)) %>%
+    select(-flow1, -flow2)
+  ch <- cow %>%
+    select(ccode, year) %>%
+    distinct() #no duplicates, we're good
+  rm(ch)
+  yearly <- yearly %>%
+    left_join(cow, by=c("ccode", "year"))
+  rm(cow)
+    
+#now do WDI, monadic
+
 #Add WDI; monadic
   indicators <- c("NE.EXP.GNFS.CD", "NE.IMP.GNFS.CD")
   wdi <- WDI(indicator = indicators, start = 1960, end = 2025, extra = TRUE)
   rm(indicators)
-  
-df <- wdi %>%
+wdi <- wdi %>%
   select(country, year, NE.EXP.GNFS.CD, NE.IMP.GNFS.CD) %>%
   rename(exports = NE.EXP.GNFS.CD) %>%
   rename(imports = NE.IMP.GNFS.CD) %>%
@@ -160,16 +205,225 @@ df <- wdi %>%
   mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
   mutate(year=year+1) %>%
   mutate(wdi_trade=(imports+exports)) %>%
-  mutate(wdi_ltrade=log(wdi_trade+1)) %>%
+  mutate(wdi_ltrade=log(wdi_trade+1))
+ch <- wdi %>%
+  select(country, year) %>%
+  distinct() #no duplicates, we're good
+rm(ch)
+wdi <- wdi %>%
   left_join(ccodes, by=c("country", "year"))
-check <- df %>%
+check <- wdi %>%
   filter(is.na(ccode))
 table(check$country)
+rm(check)
+wdi <- wdi %>%
+  mutate(ccode=ifelse(country=="Turkiye", 640, ccode)) %>%
+  rename(wdi_country=country) %>%
+  filter(wdi_trade>0) %>%
+  filter(!is.na(ccode)) %>%
+  select(-exports, -imports)
+ch <- wdi %>%
+  select(ccode, year) %>%
+  distinct() #no duplicates, we're good
+rm(ch)
+yearly <- yearly %>%
+  left_join(wdi, by=c("ccode", "year"))
+check <- yearly %>%
+  filter(is.na(ccode)) #good
+check <- yearly %>%
+  filter(country!=wdi_country) %>%
+  relocate(wdi_country) %>%
+  arrange(ccode, year) %>%
+  mutate(drop=ifelse(ccode==lag(ccode), 1, 0)) %>%
+  filter(is.na(drop)) #looks fine
+yearly <- yearly %>%
+  select(-wdi_country)
+rm(check, wdi)
+ch <- yearly %>%
+  select(ccode, year) %>%
+  distinct() #looks good
+rm(ch)
+
+#add trade w/ US only; from https://dataweb.usitc.gov/; couldn't pull these directly from web so putting them on github
+url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/DataWeb-Query-Export%20(1).xlsx"
+destfile <- "DataWeb_Query_Export_20_1_.xlsx"
+curl::curl_download(url, destfile)
+exports <- read_excel(destfile, skip = 2, sheet = "FAS Value")
+rm(destfile, url)
+exports <- exports %>%
+  select(-"Data Type") %>%
+  pivot_longer(cols=-Country,
+               names_to="year",
+               values_to="exports") %>%
+  rename(country=Country) %>% 
+  mutate(year=as.numeric(year)) %>%
+  mutate(exports=as.numeric(exports)) %>%
+  mutate(year=year+1) %>%
+  filter(!is.na(exports))
+check <- exports %>%
+  select(country, year) %>%
+  distinct() #good
+rm(check)
+exports <- exports %>%
+  left_join(ccodes, by=c("country", "year")) %>%
+  arrange(ccode, year, -exports) %>%
+  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) %>%
+  filter(problem!=1) %>%
+  select(-problem, -country)
+
+url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/DataWeb-Query-Export%20(2).xlsx"
+destfile <- "DataWeb_Query_Export_20_1_.xlsx"
+curl::curl_download(url, destfile)
+imports <- read_excel(destfile, skip = 2, sheet = "General Customs Value")
+rm(destfile, url)
+imports <- imports %>%
+  select(-"Data Type") %>%
+  pivot_longer(cols=-Country,
+               names_to="year",
+               values_to="imports") %>%
+  rename(country=Country) %>% 
+  mutate(year=as.numeric(year)) %>%
+  mutate(imports=as.numeric(imports)) %>%
+  mutate(year=year+1) %>%
+  filter(!is.na(imports))
+check <- imports %>%
+  select(country, year) %>%
+  distinct() #good
+rm(check)
+imports <- imports %>%
+  left_join(ccodes, by=c("country", "year")) %>%
+  arrange(ccode, year, -imports) %>%
+  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) %>%
+  filter(problem!=1) %>%
+  select(-problem)
+
+usitc <- exports %>% 
+  full_join(imports, by=c("ccode", "year"))
+check <- usitc %>%
+  select(ccode, year) %>%
+  distinct() #good
+rm(check)
+check <- usitc %>%
+  arrange(ccode, year) %>%
+  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
+rm(check)
+usitc <- usitc %>%
+  mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
+  mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
+  filter(year<=2025) %>%
+  mutate(usitc_dtrade=imports+exports) %>%
+  mutate(usitc_ldtrade=log(imports+exports+1)) %>%
+  select(-imports, -exports) 
+usitc <- usitc %>%
+  mutate(ccode=ifelse(country=="Côte d`Ivoire", 437, ccode)) %>%
+  mutate(ccode=ifelse(country=="São Tomé and Príncipe", 403, ccode)) %>%
+  mutate(ccode=ifelse(country=="Czechia (Czech Republic)", 316, ccode)) %>%
+  mutate(ccode=ifelse(country=="Eswatini (Swaziland)", 572, ccode))
+check <- usitc %>%
+  filter(is.na(ccode))
+table(check$country) #looks good
+rm(check)
+usitc <- usitc %>%
+  filter(!is.na(ccode))
+check <- usitc %>%
+  arrange(ccode, year) %>%
+  mutate(prob=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
+rm(check)
+check <- usitc %>%
+  select(ccode, year) %>%
+  distinct() #looks good
+rm(check)
+usitc <- usitc %>%
+  select(-country)
+
+yearly <- yearly %>%
+  left_join(usitc, by=c("ccode", "year"))
+rm(usitc, exports, imports)
+
+check <- yearly %>%
+  select(ccode, year) %>%
+  distinct() #looks good
+check <- yearly %>%
+  mutate(prob=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
+rm(check)
+
+cor(yearly$ldtrade, yearly$usitc_ldtrade, use="complete.obs")
+cor(yearly$dtrade, yearly$usitc_dtrade, use="complete.obs")
+  #above very high correlations so getting at the same thing; okay to splice
+
+#splice monadic
+mon <- yearly %>%
+  group_by(ccode) %>%
+  select(country, ccode, year, ltrade, wdi_ltrade) %>%
+  mutate(ch=(wdi_ltrade-lag(wdi_ltrade))/lag(wdi_ltrade)) %>%
+  mutate(splice=ltrade) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice))
+mon <- mon %>%
+  group_by(ccode) %>%
+  filter(any(!is.na(splice))) %>%
+  mutate(splice=na.approx(splice, year, rule=2, na.rm=TRUE)) %>%
+  ungroup() %>%
+  select(ccode, year, ltrade=splice)
+
+#splice dyadic
+dy <- yearly %>%
+  group_by(ccode) %>%
+  select(country, ccode, year, ldtrade, usitc_ldtrade) %>%
+  filter(ccode!=2) %>%
+  mutate(splice=ldtrade) %>%
+  mutate(ch=(usitc_ldtrade-lag(usitc_ldtrade))/lag(usitc_ldtrade)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  select(ccode, year, ldtrade=splice)
+yearly <- yearly %>%
+  select(ccode, year) %>%
+  left_join(mon, by=c("ccode", "year")) %>%
+  left_join(dy, by=c("ccode", "year"))
+base_data <- base_data %>%
+  left_join(yearly, by=c("ccode", "year"))
+check <- base_data %>%
+  select(ccode, year, month) %>%
+  distinct() #looks good
+rm(check, dy, mon, yearly)
+
+###############################################################################################
+#Checked through above and ready to produce .csv and upload to github
+#clean up if needed and export
+#write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
+#Now push push the file that was just written to the working directory to github
+###############################################################################################  
 
 
-%>%
-  select
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   
 #------------------------------------------------------------------------------------------------#
 #alliances
