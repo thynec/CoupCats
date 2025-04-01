@@ -26,6 +26,13 @@
 #5. build baseline
   source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
 
+  
+# Country codes (Thyne 2022). 
+  url <- "https://www.uky.edu/~clthyn2/replace_ccode_country.xls" # Bringing in ccodes to merge. 
+  destfile <- "replace_ccode_country.xls"
+  curl::curl_download(url, destfile)
+  ccodes <- read_excel(destfile)
+  rm(url, destfile)
 #------------------------------------------------------------------------------------------------#  
 #bring in all vdem relevant data; clean it up
   #------------------------------------------------------------------------------------------------#  
@@ -180,37 +187,86 @@
 #------------------------------------------------------------------------------------------------# 
 
 #Bringing in CPI data from world bank, using 2010 as base year
-url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
-destfile <- "FP_CPI.xls"
-curl::curl_download(url, destfile)
-FP_CPI <- read_excel(destfile)
-View(FP_CPI)
+  url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
+  destfile <- "FP_CPI.xls"
+  curl::curl_download(url, destfile)
+  FP_CPI <- read_excel(destfile)
+  View(FP_CPI)
 
 #Cleaning up dataset
-colnames(FP_CPI) <- FP_CPI[3, ]
-FP_CPI <- FP_CPI[-c(1:3), ]
-FP_CPI <- FP_CPI %>% #rearranging data to correct format
-  pivot_longer(cols = `1960`:`2023`,  
-               names_to = "Year",     
-               values_to = "CPI")   
-FP_CPI$Year <- as.numeric(FP_CPI$Year) #changing Year to numeric
-FP_CPI <- FP_CPI %>% 
-  select(-`Indicator Name`, -`Indicator Code`, -`Country Code`) %>% #deleting unnecessary columns
-  mutate(Year=Year+1) %>% #Lag CPI
-  rename(year = Year) %>%
-  rename(country = `Country Name`) %>% 
-  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
-  filter(!is.na(ccode))
+  colnames(FP_CPI) <- FP_CPI[3, ]
+  FP_CPI <- FP_CPI[-c(1:3), ]
+  FP_CPI <- FP_CPI %>% #rearranging data to correct format
+    pivot_longer(cols = `1960`:`2023`,  
+                 names_to = "Year",     
+                 values_to = "CPI")   
+  FP_CPI$Year <- as.numeric(FP_CPI$Year) #changing Year to numeric
+  FP_CPI <- FP_CPI %>% 
+    select(-`Indicator Name`, -`Indicator Code`, -`Country Code`) %>% #deleting unnecessary columns
+    mutate(Year=Year+1) %>% #Lag CPI
+    rename(year = Year) %>%
+    rename(country = `Country Name`) %>% 
+    left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
+    filter(!is.na(ccode))
 
 #Bringing in Thyne/Mitchell dataset
-url <- "http://www.uky.edu/~clthyn2/mitchell_thyne_CMPS2010.zip"
-download.file(url, "data.zip")
-unzip("data.zip", exdir="data")
-unlink("data.zip")
-CPI <- read_dta("data/mitchell_thyne_CMPS2010/mitchell_thyne_cmps1.dta")
+  url <- "http://www.uky.edu/~clthyn2/mitchell_thyne_CMPS2010.zip"
+  download.file(url, "data.zip")
+  unzip("data.zip", exdir="data")
+  unlink("data.zip")
+  CPI <- read_dta("data/mitchell_thyne_CMPS2010/mitchell_thyne_cmps1.dta")
+  
+  CPI <- CPI %>%
+    select(ccode1, ccode2, year, CPI_issue, CPI)
 
-CPI <- CPI %>%
-  select(ccode1, ccode2, year, CPI_issue, CPI)
+#------------------------------------------------------------------------------------------------#      
+#building Natural Resource Rents, Natural Gas Rents, Debt Service
+#------------------------------------------------------------------------------------------------# 
+# Pull variables from World Bank API
+  ntg_data <- wb_data(
+    indicator = "NY.GDP.NGAS.RT.ZS",  # Natural Gas Rents
+    country = "all",  # Use "all" for all countries
+    start_date = 1950,
+    end_date = 2025
+  )
+  ntr_data <- wb_data(
+    indicator = "NY.GDP.TOTL.RT.ZS",  # Natural Resource Rents
+    country = "all",  # Use "all" for all countries
+    start_date = 1950,
+    end_date = 2025
+  )
+  dbt_data <- wb_data(
+    indicator = "DT.TDS.DECT.GN.ZS",  # Total Debt % of GNI
+    country = "all",  # Use "all" for all countries
+    start_date = 1950,
+    end_date = 2025
+  )
+
+# Remove unwanted variables
+  ntg_data <- ntg_data %>%
+    select(-unit, -obs_status, -footnote, -last_updated, -iso2c, -iso3c)
+  ntr_data <- ntr_data %>%
+    select(-unit, -obs_status, -footnote, -last_updated, -iso2c, -iso3c)
+  main <- dbt_data %>%
+    select(-unit, -obs_status, -footnote, -last_updated, -iso2c, -iso3c) %>%
+    left_join(ntg_data, by = c("country", "date")) %>%
+    left_join(ntr_data, by = c("country", "date")) %>%
+    rename("year"=date, "debt"=DT.TDS.DECT.GN.ZS, 
+           "NG Rents"=NY.GDP.NGAS.RT.ZS,"NR Rents"=NY.GDP.TOTL.RT.ZS)
+# All data contained within 'main', the rest is superfluous
+  rm(ntg_data, ntr_data, dbt_data)
+
+# Bring in ccodes, remove the country name 
+# (removes any conflict with base_data country names)
+  main <- main %>%
+    left_join(ccodes, by = c("country", "year")) %>%
+    dplyr::select(-country) %>%
+    distinct()
+
+# Merge the variables with base_data
+  base_data <- base_data %>%
+    left_join(main, by = c("ccode", "year"))
+  rm(main)
   
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
