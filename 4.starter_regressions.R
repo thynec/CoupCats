@@ -71,26 +71,23 @@ write.csv(base_data, "base_data.csv", row.names = FALSE)
 #logit with coup attempt as dv
 #Clay added robust SEs on 03/19/25; use this format for other regressions (feglm<-glm at beginning; 'cluster = ~ccode' at end))
 coup_logit <- feglm(coup_attempt ~ 
-                      pres_elec_lag + polyarchy + polyarchy2 + milreg + #2.a. domestic political
+                      polyarchy + polyarchy2 + milreg + #2.a. domestic political
                       lgdppcl + ch_gdppcl + #2.b. domestic economic
-                      cw + mobilization + #2.c. political instability
-                      solqual +  #2.d. military vars
-                      cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + ltrade + #intl vars
+                      cw + mobilization +  #2.c. political instability
+                      milit_dimension + #2.d. military vars
+                      cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                       pce + pce2 + pce3, #autocorrelation vars, 
                     data = base_data, family = 'binomial', cluster = ~ccode)
 summary(coup_logit)
 
-df$years <- predict(coup_logit, newdata=base_data)
-
-
-check <- base_data %>%
-  filter(!is.na(pce))
-summary(check$year)
-check <- check %>%
-  filter(year>=2025) 
-summary(check$month)
-summary(check)
-
+base_data$yhat <- predict(coup_logit, newdata=base_data, type="response")
+years <- base_data %>%
+  filter(!is.na(yhat))
+summary(years$year) #these are the years that were included in the last regression; we want this to be 2025
+months <-years %>%
+  filter(year==2025)
+summary(months$month) #this is the last month in the regression, assuming we get it updated to 2025; we want this to be 3 or 4 (March or April)
+rm(years, months)
 
 #------------------------------------------------------------------------------------------------#  
 #Pretty table of baseline model - NEED to replace var names with labels at some point
