@@ -8,8 +8,8 @@
 rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
-setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -64,15 +64,6 @@ rm(base_data.2e)
 
 write.csv(base_data, "base_data.csv", row.names = FALSE)
 
-# Filtering out rows with NAs. 
-columns <- c("pres_elec_lag", "polyarchy", "polyarchy2", 
-             "lgdppcl", "ch_gdppcl", 
-             "cw", 
-             "cold", "e_asia_pacific", "LA_carrib", "MENA", "N_america", "S_asia", "Sub_africa", 
-             "pce", "pce2", "pce3")
-
-base_data2 <- base_data[complete.cases(base_data[, ..columns]), ] 
-
 #------------------------------------------------------------------------------------------------#  
 #Baseline model
 #------------------------------------------------------------------------------------------------#  
@@ -84,10 +75,22 @@ coup_logit <- feglm(coup_attempt ~
                       lgdppcl + ch_gdppcl + #2.b. domestic economic
                       cw + mobilization + #2.c. political instability
                       solqual +  #2.d. military vars
-                      cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                      cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + ltrade + #intl vars
                       pce + pce2 + pce3, #autocorrelation vars, 
                     data = base_data, family = 'binomial', cluster = ~ccode)
 summary(coup_logit)
+
+df$years <- predict(coup_logit, newdata=base_data)
+
+
+check <- base_data %>%
+  filter(!is.na(pce))
+summary(check$year)
+check <- check %>%
+  filter(year>=2025) 
+summary(check$month)
+summary(check)
+
 
 #------------------------------------------------------------------------------------------------#  
 #Pretty table of baseline model - NEED to replace var names with labels at some point
@@ -163,6 +166,19 @@ formatted_table <- tab_source_note(
 
 print(formatted_table)
 rm(formatted_table)
+
+
+# Filtering out rows with NAs. 
+columns <- c("pres_elec_lag", "polyarchy", "polyarchy2", 
+             "lgdppcl", "ch_gdppcl", 
+             "cw", 
+             "cold", "e_asia_pacific", "LA_carrib", "MENA", "N_america", "S_asia", "Sub_africa", 
+             "pce", "pce2", "pce3")
+
+base_data2 <- base_data[complete.cases(base_data[, ..columns]), ] 
+
+
+
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #probit with coup attempt as dv and population total, median age, military expenditure (total and percent of GDP)
@@ -573,9 +589,9 @@ cutoff <- 0.006
 oversample_factor <- 1
 
 results <- data.frame(Fold = integer(), # Empty data frame for results 
-                         Accuracy = numeric(),
-                         Sensitivity = numeric(),
-                         Specificity = numeric())
+                      Accuracy = numeric(),
+                      Sensitivity = numeric(),
+                      Specificity = numeric())
 
 
 folds <- sample(rep(1:k_folds, length.out = nrow(base_data2))) # Randomly assigns each observation to fold
@@ -591,7 +607,7 @@ for (i in 1:k_folds) {
   # Remove missing values
   training <- na.omit(training)
   testing <- na.omit(testing)
-
+  
   # Separate coup & non-coup cases
   coup_countries <- training %>%
     filter(euro_cent_asia == 1 | N_america == 1) %>%
@@ -627,10 +643,10 @@ for (i in 1:k_folds) {
   
   # Fit logistic regression model
   model <- feglm(coup_attempt ~ pres_elec_lag + polyarchy + polyarchy2 + milreg + 
-                 lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
-                 cold + e_asia_pacific + LA_carrib + MENA + N_america + 
-                 S_asia + Sub_africa + pce + pce2 + pce3, 
-               data = balanced_data, family = "binomial")
+                   lgdppcl + ch_gdppcl + cw + mobilization + solqual +  
+                   cold + e_asia_pacific + LA_carrib + MENA + N_america + 
+                   S_asia + Sub_africa + pce + pce2 + pce3, 
+                 data = balanced_data, family = "binomial")
   
   # Make predictions
   predicted_probs <- predict(model, newdata = testing, type = "response")
@@ -655,5 +671,4 @@ for (i in 1:k_folds) {
 print(results)
 rm(cutoff, folds, i, k_folds, oversample_factor, predicted_classes, predicted_probs, remove_perc)
 rm(coup_countries, non_coup_data, testing, training, balanced_data, model, conf_matrix, other_countries, model_data)
-
 
