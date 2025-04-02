@@ -92,6 +92,45 @@ base_data <- base_data %>%
   select(-yhat)
 
 #------------------------------------------------------------------------------------------------#  
+#Look at top-10 idea to show that we have a good model
+#------------------------------------------------------------------------------------------------#  
+outcome <- base_data %>%
+  mutate(yhat = predict(coup_logit, newdata=base_data, type="response")) %>%
+  select(ccode, year, month, coup_attempt, yhat) %>%
+  filter(!is.na(yhat))
+outcome <- outcome %>%
+  group_by(year) %>%
+  mutate(mean=mean(yhat)) %>%
+  mutate(sd=sd(yhat)) %>%
+  mutate(z=(yhat-mean)/sd) %>%
+  filter(coup_attempt==1) %>%
+  mutate(percentile=pnorm(z)*100)
+tot <- nrow(outcome)
+p90 <- outcome %>%
+  filter(percentile>80)
+p90 <- nrow(p90)/tot #so 38% of coup attempts happened in states we had ranked in 90+ percentile
+
+
+
+
+
+
+  arrange(year, -yhat) %>%
+  group_by(year) %>%
+  mutate(rank=row_number()) %>%
+  ungroup()
+outcome <- outcome %>%
+  filter(coup_attempt==1) %>%
+  mutate(rank=(round(rank, 1))) %>%
+  mutate()
+
+
+
+
+
+
+
+#------------------------------------------------------------------------------------------------#  
 #Pretty table of baseline model - NEED to replace var names with labels at some point
 #------------------------------------------------------------------------------------------------#  
 
