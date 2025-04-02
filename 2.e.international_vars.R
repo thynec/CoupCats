@@ -636,5 +636,257 @@ base_data <- base_data %>%
 write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################  
+#FDI code from world bank
+# Define URL
+url <- "https://api.worldbank.org/v2/en/indicator/BX.KLT.DINV.CD.WD?downloadformat=csv"
 
+# Define file paths
+zip_file <- tempfile(fileext = ".zip")  
+unzip_dir <- tempdir()  
+
+# Download ZIP file
+download.file(url, zip_file, mode = "wb")
+
+# Unzip the file
+unzip(zip_file, exdir = unzip_dir)
+
+# List extracted files to find the correct one
+files <- list.files(unzip_dir, full.names = TRUE)
+print(files)  # Check filenames
+
+# Read the desired CSV file, skipping metadata
+csv_file <- file.path(unzip_dir, "API_BX.KLT.DINV.CD.WD_DS2_en_csv_v2_26165.csv")
+df <- read_csv(csv_file, skip = 4)  # Skip metadata rows
+
+# Rename columns for clarity
+colnames(df)[1:5] <- c("country", "ccode", "Indicator_Name", "Indicator_Code", "X") 
+
+# Convert wide format to long format (had years as seperate columns first)
+fdi <- df %>%
+  dplyr::select(-Indicator_Name, -Indicator_Code, -X) %>%  # Remove unnecessary columns
+  pivot_longer(cols = -c(country, ccode), 
+               names_to = "year", 
+               values_to = "FDI") %>%
+  mutate(year = as.numeric(year))  # Convert year to numeric
+
+rm(csv_file, files, unzip_dir, url, zip_file, df)
+
+#cleaning
+class(ccodes$year)
+class(fdi$year)
+fdi <- fdi %>% 
+  dplyr::select(country, year, FDI)
+
+fdi <- fdi  %>%
+  left_join(ccodes, by =  c("country", "year"))
+
+check <- fdi %>%
+  filter(is.na(ccode)) 
+table(check$country) #need to fix several...
+rm(check)
+
+#getting ccodes
+fdi <- fdi %>%
+  mutate(ccode = ifelse(country == "Afghanistan", 700, ccode)) %>%
+  mutate(ccode = ifelse(country == "Albania", 339, ccode)) %>%
+  mutate(ccode = ifelse(country == "Algeria", 615, ccode)) %>%
+  mutate(ccode = ifelse(country == "American Samoa", 990, ccode)) %>%
+  mutate(ccode = ifelse(country == "Andorra", 232, ccode)) %>%
+  mutate(ccode = ifelse(country == "Angola", 540, ccode)) %>%
+  mutate(ccode = ifelse(country == "Antigua and Barbuda", 58, ccode)) %>%
+  mutate(ccode = ifelse(country == "Argentina", 160, ccode)) %>%
+  mutate(ccode = ifelse(country == "Armenia", 371, ccode)) %>%
+  mutate(ccode = ifelse(country == "Australia", 900, ccode)) %>%
+  mutate(ccode = ifelse(country == "Austria", 305, ccode)) %>%
+  mutate(ccode = ifelse(country == "Azerbaijan", 373, ccode)) %>%
+  mutate(ccode = ifelse(country == "Bahamas, The", 31, ccode)) %>%
+  mutate(ccode = ifelse(country == "Bahrain", 692, ccode)) %>%
+  mutate(ccode = ifelse(country == "Bangladesh", 771, ccode)) %>%
+  mutate(ccode = ifelse(country == "Barbados", 53, ccode)) %>%
+  mutate(ccode = ifelse(country == "Belarus", 370, ccode)) %>%
+  mutate(ccode = ifelse(country == "Belgium", 211, ccode)) %>%
+  mutate(ccode = ifelse(country == "Belize", 80, ccode)) %>%
+  mutate(ccode = ifelse(country == "Benin", 434, ccode)) %>%
+  mutate(ccode = ifelse(country == "Bhutan", 760, ccode)) %>%
+  mutate(ccode = ifelse(country == "Bolivia", 145, ccode)) %>%
+  mutate(ccode = ifelse(country == "Bosnia and Herzegovina", 346, ccode)) %>%
+  mutate(ccode = ifelse(country == "Botswana", 571, ccode)) %>%
+  mutate(ccode = ifelse(country == "Brazil", 140, ccode)) %>%
+  mutate(ccode = ifelse(country == "Brunei Darussalam", 835, ccode)) %>%
+  mutate(ccode = ifelse(country == "Bulgaria", 355, ccode)) %>%
+  mutate(ccode = ifelse(country == "Burkina Faso", 439, ccode)) %>%
+  mutate(ccode = ifelse(country == "Burundi", 516, ccode)) %>%
+  mutate(ccode = ifelse(country == "Cabo Verde", 402, ccode)) %>%
+  mutate(ccode = ifelse(country == "Cambodia", 811, ccode)) %>%
+  mutate(ccode = ifelse(country == "Cameroon", 471, ccode)) %>%
+  mutate(ccode = ifelse(country == "Canada", 20, ccode)) %>%
+  mutate(ccode = ifelse(country == "Central African Republic", 482, ccode)) %>%
+  mutate(ccode = ifelse(country == "Chad", 483, ccode)) %>%
+  mutate(ccode = ifelse(country == "Chile", 155, ccode)) %>%
+  mutate(ccode = ifelse(country == "China", 710, ccode)) %>%
+  mutate(ccode = ifelse(country == "Colombia", 100, ccode)) %>%
+  mutate(ccode = ifelse(country == "Comoros", 581, ccode)) %>%
+  mutate(ccode = ifelse(country == "Congo, Dem. Rep.", 490, ccode)) %>%
+  mutate(ccode = ifelse(country == "Congo, Rep.", 484, ccode)) %>%
+  mutate(ccode = ifelse(country == "Costa Rica", 94, ccode)) %>%
+  mutate(ccode = ifelse(country == "Cote d'Ivoire", 437, ccode)) %>%
+  mutate(ccode = ifelse(country == "Croatia", 344, ccode)) %>%
+  mutate(ccode = ifelse(country == "Cuba", 40, ccode)) %>%
+  mutate(ccode = ifelse(country == "Cyprus", 352, ccode)) %>%
+  mutate(ccode = ifelse(country == "Czechia", 316, ccode)) %>%
+  mutate(ccode = ifelse(country == "Denmark", 390, ccode)) %>%
+  mutate(ccode = ifelse(country == "Djibouti", 522, ccode)) %>%
+  mutate(ccode = ifelse(country == "Dominica", 54, ccode)) %>%
+  mutate(ccode = ifelse(country == "Dominican Republic", 42, ccode)) %>%
+  mutate(ccode = ifelse(country == "Ecuador", 130, ccode)) %>%
+  mutate(ccode = ifelse(country == "Egypt, Arab Rep.", 651, ccode)) %>%
+  mutate(ccode = ifelse(country == "El Salvador", 92, ccode)) %>%
+  mutate(ccode = ifelse(country == "Equatorial Guinea", 411, ccode)) %>%
+  mutate(ccode = ifelse(country == "Eritrea", 531, ccode)) %>%
+  mutate(ccode = ifelse(country == "Estonia", 366, ccode)) %>%
+  mutate(ccode = ifelse(country == "Eswatini", 572, ccode)) %>%
+  mutate(ccode = ifelse(country == "Ethiopia", 530, ccode)) %>%
+  mutate(ccode = ifelse(country == "Fiji", 950, ccode)) %>%
+  mutate(ccode = ifelse(country == "Finland", 375, ccode)) %>%
+  mutate(ccode = ifelse(country == "France", 220, ccode)) %>%
+  mutate(ccode = ifelse(country == "Gabon", 481, ccode)) %>%
+  mutate(ccode = ifelse(country == "Gambia, The", 420, ccode)) %>%
+  mutate(ccode = ifelse(country == "Georgia", 372, ccode)) %>%
+  mutate(ccode = ifelse(country == "Germany", 255, ccode)) %>%
+  mutate(ccode = ifelse(country == "Ghana", 452, ccode)) %>%
+  mutate(ccode = ifelse(country == "Greece", 350, ccode)) %>%
+  mutate(ccode = ifelse(country == "Grenada", 55, ccode)) %>%
+  mutate(ccode = ifelse(country == "Guatemala", 90, ccode)) %>%
+  mutate(ccode = ifelse(country == "Guinea", 438, ccode)) %>%
+  mutate(ccode = ifelse(country == "Guinea-Bissau", 404, ccode)) %>%
+  mutate(ccode = ifelse(country == "Guyana", 110, ccode)) %>%
+  mutate(ccode = ifelse(country == "Haiti", 41, ccode)) %>%
+  mutate(ccode = ifelse(country == "Honduras", 91, ccode)) %>%
+  mutate(ccode = ifelse(country == "Hungary", 310, ccode)) %>%
+  mutate(ccode = ifelse(country == "Iceland", 395, ccode)) %>%
+  mutate(ccode = ifelse(country == "India", 750, ccode)) %>%
+  mutate(ccode = ifelse(country == "Indonesia", 850, ccode)) %>%
+  mutate(ccode = ifelse(country == "Iran, Islamic Rep.", 630, ccode)) %>%
+  mutate(ccode = ifelse(country == "Iraq", 645, ccode)) %>%
+  mutate(ccode = ifelse(country == "Ireland", 205, ccode)) %>%
+  mutate(ccode = ifelse(country == "Israel", 666, ccode)) %>%
+  mutate(ccode = ifelse(country == "Italy", 325, ccode)) %>%
+  mutate(ccode = ifelse(country == "Jamaica", 51, ccode)) %>%
+  mutate(ccode = ifelse(country == "Japan", 740, ccode)) %>%
+  mutate(ccode = ifelse(country == "Jordan", 663, ccode)) %>%
+  mutate(ccode = ifelse(country == "Kazakhstan", 705, ccode)) %>%
+  mutate(ccode = ifelse(country == "Kenya", 501, ccode)) %>%
+  mutate(ccode = ifelse(country == "Kiribati", 982, ccode)) %>%
+  mutate(ccode = ifelse(country == "Korea, Dem. People's Rep.", 731, ccode)) %>%
+  mutate(ccode = ifelse(country == "Korea, Rep.", 732, ccode)) %>%
+  mutate(ccode = ifelse(country == "Kosovo", 347, ccode)) %>%
+  mutate(ccode = ifelse(country == "Kuwait", 690, ccode)) %>%
+  mutate(ccode = ifelse(country == "Kyrgyz Republic", 703, ccode)) %>%
+  mutate(ccode = ifelse(country == "Lao PDR", 812, ccode)) %>%
+  mutate(ccode = ifelse(country == "Latvia", 367, ccode)) %>%
+  mutate(ccode = ifelse(country == "Lebanon", 660, ccode)) %>%
+  mutate(ccode = ifelse(country == "Lesotho", 570, ccode)) %>%
+  mutate(ccode = ifelse(country == "Liberia", 450, ccode)) %>%
+  mutate(ccode = ifelse(country == "Libya", 620, ccode)) %>%
+  mutate(ccode = ifelse(country == "Liechtenstein", 223, ccode)) %>%
+  mutate(ccode = ifelse(country == "Lithuania", 368, ccode)) %>%
+  mutate(ccode = ifelse(country == "Luxembourg", 211, ccode)) %>%
+  mutate(ccode = ifelse(country == "Madagascar", 580, ccode)) %>%
+  mutate(ccode = ifelse(country == "Malawi", 553, ccode)) %>%
+  mutate(ccode = ifelse(country == "Malaysia", 820, ccode)) %>%
+  mutate(ccode = ifelse(country == "Maldives", 781, ccode)) %>%
+  mutate(ccode = ifelse(country == "Mali", 432, ccode)) %>%
+  mutate(ccode = ifelse(country == "Malta", 338, ccode)) %>%
+  mutate(ccode = ifelse(country == "Marshall Islands", 983, ccode)) %>%
+  mutate(ccode = ifelse(country == "Mauritania", 435, ccode)) %>%
+  mutate(ccode = ifelse(country == "Mauritius", 590, ccode)) %>%
+  mutate(ccode = ifelse(country == "Mexico", 70, ccode)) %>%
+  mutate(ccode = ifelse(country == "Micronesia, Fed. Sts.", 987, ccode)) %>%
+  mutate(ccode = ifelse(country == "Moldova", 359, ccode)) %>%
+  mutate(ccode = ifelse(country == "Monaco", 221, ccode)) %>%
+  mutate(ccode = ifelse(country == "Mongolia", 712, ccode)) %>%
+  mutate(ccode = ifelse(country == "Montenegro", 341, ccode)) %>%
+  mutate(ccode = ifelse(country == "Morocco", 600, ccode)) %>%
+  mutate(ccode = ifelse(country == "Mozambique", 541, ccode)) %>%
+  mutate(ccode = ifelse(country == "Myanmar", 775, ccode)) %>%
+  mutate(ccode = ifelse(country == "Namibia", 565, ccode)) %>%
+  mutate(ccode = ifelse(country == "Nauru", 970, ccode)) %>%
+  mutate(ccode = ifelse(country == "Nepal", 790, ccode)) %>%
+  mutate(ccode = ifelse(country == "Netherlands", 210, ccode)) %>%
+  mutate(ccode = ifelse(country == "New Zealand", 920, ccode)) %>%
+  mutate(ccode = ifelse(country == "Nicaragua", 93, ccode)) %>%
+  mutate(ccode = ifelse(country == "Niger", 436, ccode)) %>%
+  mutate(ccode = ifelse(country == "Nigeria", 475, ccode)) %>%
+  mutate(ccode = ifelse(country == "North Macedonia", 343, ccode)) %>%
+  mutate(ccode = ifelse(country == "Norway", 385, ccode)) %>%
+  mutate(ccode = ifelse(country == "Oman", 698, ccode)) %>%
+  mutate(ccode = ifelse(country == "Pakistan", 770, ccode)) %>%
+  mutate(ccode = ifelse(country == "Palau", 986, ccode)) %>%
+  mutate(ccode = ifelse(country == "Panama", 95, ccode)) %>%
+  mutate(ccode = ifelse(country == "Papua New Guinea", 910, ccode)) %>%
+  mutate(ccode = ifelse(country == "Paraguay", 150, ccode)) %>%
+  mutate(ccode = ifelse(country == "Peru", 135, ccode)) %>%
+  mutate(ccode = ifelse(country == "Philippines", 840, ccode)) %>%
+  mutate(ccode = ifelse(country == "Poland", 290, ccode)) %>%
+  mutate(ccode = ifelse(country == "Portugal", 235, ccode)) %>%
+  mutate(ccode = ifelse(country == "Puerto Rico", 52, ccode)) %>%
+  mutate(ccode = ifelse(country == "Qatar", 694, ccode)) %>%
+  mutate(ccode = ifelse(country == "Romania", 360, ccode)) %>%
+  mutate(ccode = ifelse(country == "Russian Federation", 365, ccode)) %>%
+  mutate(ccode = ifelse(country == "Rwanda", 517, ccode)) %>%
+  mutate(ccode = ifelse(country == "Samoa", 950, ccode)) %>%
+  mutate(ccode = ifelse(country == "San Marino", 331, ccode)) %>%
+  mutate(ccode = ifelse(country == "Sao Tome and Principe", 403, ccode)) %>%
+  mutate(ccode = ifelse(country == "Saudi Arabia", 670, ccode)) %>%
+  mutate(ccode = ifelse(country == "Senegal", 433, ccode)) %>%
+  mutate(ccode = ifelse(country == "Serbia", 345, ccode)) %>%
+  mutate(ccode = ifelse(country == "Seychelles", 591, ccode)) %>%
+  mutate(ccode = ifelse(country == "Sierra Leone", 451, ccode)) %>%
+  mutate(ccode = ifelse(country == "Singapore", 830, ccode)) %>%
+  mutate(ccode = ifelse(country == "Slovak Republic", 317, ccode)) %>%
+  mutate(ccode = ifelse(country == "Slovenia", 349, ccode)) %>%
+  mutate(ccode = ifelse(country == "Solomon Islands", 940, ccode)) %>%
+  mutate(ccode = ifelse(country == "Somalia", 520, ccode)) %>%
+  mutate(ccode = ifelse(country == "South Africa", 560, ccode)) %>%
+  mutate(ccode = ifelse(country == "South Sudan", 626, ccode)) %>%
+  mutate(ccode = ifelse(country == "Spain", 230, ccode)) %>%
+  mutate(ccode = ifelse(country == "Sri Lanka", 780, ccode)) %>%
+  mutate(ccode = ifelse(country == "St. Kitts and Nevis", 60, ccode)) %>%
+  mutate(ccode = ifelse(country == "St. Lucia", 53, ccode)) %>%
+  mutate(ccode = ifelse(country == "St. Vincent and the Grenadines", 54, ccode)) %>%
+  mutate(ccode = ifelse(country == "Sudan", 625, ccode)) %>%
+  mutate(ccode = ifelse(country == "Suriname", 115, ccode)) %>%
+  mutate(ccode = ifelse(country == "Sweden", 380, ccode)) %>%
+  mutate(ccode = ifelse(country == "Switzerland", 225, ccode)) %>%
+  mutate(ccode = ifelse(country == "Syrian Arab Republic", 652, ccode)) %>%
+  mutate(ccode = ifelse(country == "Tajikistan", 702, ccode)) %>%
+  mutate(ccode = ifelse(country == "Tanzania", 510, ccode)) %>%
+  mutate(ccode = ifelse(country == "Thailand", 800, ccode)) %>%
+  mutate(ccode = ifelse(country == "Timor-Leste", 860, ccode)) %>%
+  mutate(ccode = ifelse(country == "Togo", 461, ccode)) %>%
+  mutate(ccode = ifelse(country == "Tonga", 955, ccode)) %>%
+  mutate(ccode = ifelse(country == "Trinidad and Tobago", 57, ccode)) %>%
+  mutate(ccode = ifelse(country == "Tunisia", 615, ccode)) %>%
+  mutate(ccode = ifelse(country == "Turkmenistan", 701, ccode)) %>%
+  mutate(ccode = ifelse(country == "Tuvalu", 947, ccode)) %>%
+  mutate(ccode = ifelse(country == "Uganda", 500, ccode)) %>%
+  mutate(ccode = ifelse(country == "Ukraine", 369, ccode)) %>%
+  mutate(ccode = ifelse(country == "United Arab Emirates", 696, ccode)) %>%
+  mutate(ccode = ifelse(country == "United Kingdom", 200, ccode)) %>%
+  mutate(ccode = ifelse(country == "United States", 2, ccode)) %>%
+  mutate(ccode = ifelse(country == "Uruguay", 165, ccode)) %>%
+  mutate(ccode = ifelse(country == "Uzbekistan", 704, ccode)) %>%
+  mutate(ccode = ifelse(country == "Vanuatu", 935, ccode)) %>%
+  mutate(ccode = ifelse(country == "Venezuela, RB", 101, ccode)) %>%
+  mutate(ccode = ifelse(country == "Viet Nam", 816, ccode)) %>%
+  mutate(ccode = ifelse(country == "Yemen, Rep.", 679, ccode)) %>%
+  mutate(ccode = ifelse(country == "Zambia", 551, ccode)) %>%
+  mutate(ccode = ifelse(country == "Zimbabwe", 552, ccode)) %>%
+  filter(!is.na(ccode)) %>%
+  dplyr::select(-country)
+  
+#merging into base data
+base_data <- base_data %>%
+  left_join(fdi, by = c("ccode", "year"))
+rm(fdi)
 
