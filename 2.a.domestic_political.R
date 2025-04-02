@@ -349,6 +349,45 @@ base_data <- base_data %>%
   set_variable_labels(milreg="milreg from reign; powell updates") %>%
   select(-country_milreg)
 
+#------------------------------------------------------------------------------------------------#
+# Gender data (V-Dem) 
+#------------------------------------------------------------------------------------------------#    
+
+gender_data <- vdem %>%
+  subset(select = c(country_name, # Country. 
+                    e_regionpol_6C, # Region. 
+                    year, # Year. 
+                    v2x_genpp, # Women political participation index. 
+                    v2x_gender, # Women political empowerment index. 
+                    v2x_gencl)) %>% # Women civil liberties.
+  rename(country = country_name,
+         region = e_regionpol_6C,
+         year = year, 
+         wom_polpart = v2x_genpp, 
+         women_polemp = v2x_gender, 
+         wom_civlib = v2x_gencl) %>% 
+  mutate(year=year+1) %>% # Just lagged. 
+  filter(year >= 1950)
+
+# Merging in ccodes. 
+gender_data <- gender_data %>% 
+  left_join(ccodes, by = c("year", "country")) %>%
+  filter(!is.na(ccode)) # Non-state actors. 
+
+# Merging data. 
+gender_data <- gender_data %>% 
+  rename(mcountry = country)
+base_data <- base_data %>% 
+  left_join(gender_data, by = c("ccode", "year")) 
+check <- base_data %>% 
+  subset(select = c(country, mcountry)) %>%
+  distinct() %>%
+  filter(country!=mcountry)
+rm(check) # All good. 
+base_data <- base_data %>%
+  subset(select = -c(mcountry))
+rm(gender_data) 
+
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
@@ -356,30 +395,9 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ###############################################################################################
 #Below is stuff we probably won't use but keeping it here just in case...
 ###############################################################################################
-
-
-
-
-
-
 
 # -------------------------- Political Data ------------------------------ #
 #
@@ -722,51 +740,6 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #base_data <- base_data %>% 
 #  left_join(vdem_civlib, by = c("ccode", "year"))  
 #rm(vdem_civlib)
-
-
-# Gender equality indicators. 
-# Pulling in data. 
-gender_data <- vdem
-
-# Cleaning up data. 
-gender_data <- gender_data %>%
-  subset(select = c(country_name, # Country. 
-                    e_regionpol_6C, # Region. 
-                    year, # Year. 
-                    v2x_genpp, # Women political participation index. 
-                    v2x_gender, # Women political empowerment index. 
-                    v2x_gencl)) %>% # Women civil liberties.
-  rename(country = country_name,
-         region = e_regionpol_6C,
-         year = year, 
-         wom_polpart = v2x_genpp, 
-         women_polemp = v2x_gender, 
-         wom_civlib = v2x_gencl) %>% 
-  mutate(year=year+1) %>% # Just lagged. 
-  filter(year >= 1950)
-
-gender_data <- gender_data %>% # Merging in ccodes. 
-  left_join(ccodes, by = c("year", "country")) %>%
-  filter(!is.na(ccode)) # Non-state actors. 
-
-# Merging data. 
-gender_data <- gender_data %>% 
-  rename(mcountry = country)
-base_data <- base_data %>% 
-  left_join(gender_data, by = c("ccode", "year")) 
-check <- base_data %>% 
-  subset(select = c(country, mcountry)) %>%
-  distinct() %>%
-  filter(country!=mcountry)
-rm(check) # All good. 
-base_data <- base_data %>%
-  subset(select = -c(mcountry))
-rm(gender_data) 
-
-
-
-
-
 
 # 3. Age population data (World Bank Data Group 2024).
 # 3.1. Reading in data. 
