@@ -74,7 +74,7 @@ coup_logit <- feglm(coup_attempt ~
                       polyarchy + polyarchy2 + milreg + #2.a. domestic political
                       lgdppcl + ch_gdppcl + #2.b. domestic economic
                       cw + mobilization +  #2.c. political instability
-                      milit_dimension + #2.d. military vars
+                      milit_dimension + solqual + #2.d. military vars
                       cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                       pce + pce2 + pce3, #autocorrelation vars, 
                     data = base_data, family = 'binomial', cluster = ~ccode)
@@ -670,4 +670,3 @@ for (i in 1:k_folds) {
 print(results)
 rm(cutoff, folds, i, k_folds, oversample_factor, predicted_classes, predicted_probs, remove_perc)
 rm(coup_countries, non_coup_data, testing, training, balanced_data, model, conf_matrix, other_countries, model_data)
-
