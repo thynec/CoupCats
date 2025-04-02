@@ -4,21 +4,12 @@
 
 #Building political instability variables
 
-#Priority vars:
-#mobilization using VDEM - COMPLETED
-#civil wars - COMPLETED
-
-#Secondary vars:
-#protests using events data
-#instability using Banks
-#terrorist attacks
-
 #1. clear all
 rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
-setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -66,6 +57,12 @@ cw <- cw %>%
   mutate(cw=1) %>%
   distinct() 
 summary(cw$year) #fill missing years from 1947-2024
+#expand for 2025; assuming ongoing CWs in 2024 continue to 2025
+cw <- cw %>%
+  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  uncount(expand) %>%
+  arrange(ccode, year) %>%
+  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year))
 #merge into base
 base_data <- base_data %>%
   left_join(cw, by=c("ccode", "year"))
@@ -73,10 +70,9 @@ check <- base_data %>%
   filter(mcountry!=country) %>%
   select(country, mcountry) %>%
   distinct() 
-View(check) #looks good
 rm(check, cw)
 base_data <- base_data %>%
-  mutate(cw=ifelse(is.na(cw) & year>=1947 & year<=2024, 0, cw)) %>%
+  mutate(cw=ifelse(is.na(cw) & year>=1947 & year<=2025, 0, cw)) %>%
   set_variable_labels(cw="3-4 types from UCDP, t-1") %>%
   select(-mcountry)
 
@@ -145,7 +141,20 @@ vdem_data <- vdem_data %>% # Merging in ccodes.
 check <- vdem_data %>%
   filter(is.na(ccode))
 table(check$country) #looks good
+vdem_data <- vdem_data %>%
+  filter(!is.na(ccode))
 rm(check) # No Republic of Vietnam (1950-76), Afghanistan (1950-2000), Guinea-Bissau (1950-2005), Laos (2024), Iceland (1950-2019)
+vdem_data <- vdem_data %>%
+  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  uncount(expand) %>%
+  arrange(ccode, year) %>%
+  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
+  mutate(mobilization=ifelse(year==2025, NA, mobilization)) %>%
+  mutate(mobil_conc=ifelse(year==2025, NA, mobil_conc))
+vdem_data <- vdem_data %>%
+  group_by(ccode) %>%
+  mutate(mobilization = if (sum(!is.na(mobilization)) >= 2) na.approx(mobilization, year, rule = 2) else mobilization) %>%
+  mutate(mobil_conc = if (sum(!is.na(mobil_conc)) >= 2) na.approx(mobil_conc, year, rule = 2) else mobil_conc)
 
 # Merging into data set. 
 vdem_data <- vdem_data %>%
