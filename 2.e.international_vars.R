@@ -4,21 +4,6 @@
 
 #Building international-related variables
 
-#Priority vars:
-#regional dummies - COMPLETED
-#trade - COMPLETED
-#cold war dummy - COMPLETED
-#ongoing interstate war
-#regional contagion
-#FDI
-
-#Secondary variables:
-#foreign military training (McLauchlin/Seymour/Martel J. Peace Research 2022)
-#international signals
-#rivalries (Bak/Chavez/Rider J. Conflict Resolution 2019)
-#defensive alliances (Boutton Intl Studies Quarterly 2019)
-#peacekeeping (Banini/Powell/Yekple African Security 2020)
-
 #1. clear all
 rm(list = ls())
 #2. set working directory
@@ -38,6 +23,71 @@ source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.buil
 
 base_data <- base_data %>%
   mutate(cold=ifelse(year<=1989, 1, 0))
+
+#------------------------------------------------------------------------------------------------#
+#add pres visits; data collected by Kade in Mar/Apr 2025
+#------------------------------------------------------------------------------------------------#  
+pres <- read_delim("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/presidential_visits.txt", 
+                                  delim = "\t", escape_double = FALSE, 
+                                  col_names = FALSE, trim_ws = TRUE)
+#rename columns
+pres <- pres %>% 
+  dplyr::rename(country = X1, city = X2, visit = X3, date = X4)
+#select relevant variables
+pres <- pres %>%
+  dplyr::select(-city) %>%
+  dplyr::mutate(visit = 1)  #change reason into one (binary for visit or no visit)
+#parsing dates 
+pres <- pres %>% 
+  mutate(
+    month = str_extract(date, "^[A-Za-z]+"),  # Extract month
+    year = str_extract(date, "\\d{4}")        # Extract year
+  ) %>% 
+  dplyr::select(-date) 
+pres <- pres %>%
+  dplyr::mutate(month = match(month, month.name)) %>%
+  mutate(year=as.numeric(year)) %>%
+  mutate(month=as.numeric(month))
+pres <- pres %>%
+  left_join(ccodes, by=c("country", "year"))
+check <- pres %>%
+  filter(is.na(ccode)) 
+table(check$country) #need to fix several...
+rm(check)
+pres <- pres %>%
+  mutate(ccode=ifelse(country=="China, People’s Republic of", 710, ccode)) %>%
+  mutate(ccode=ifelse(country=="Republic of China", 710, ccode)) %>%
+  mutate(ccode=ifelse(country=="United Kingdom (Northern Ireland)", 200, ccode)) %>%
+  mutate(ccode=ifelse(country=="United Kingdom (Wales)", 200, ccode)) %>%
+  mutate(ccode=ifelse(country=="Germany, Federal Republic of", 260, ccode)) %>%
+  mutate(ccode=ifelse(country=="Yugoslavia (Kosovo)", 347, ccode)) %>%
+  mutate(ccode=ifelse(country=="Serbia-Montenegro (Kosovo)", 347, ccode)) %>%
+  mutate(ccode=ifelse(country=="Macedonia, Former Yugoslav Republic of", 343, ccode)) %>%
+  filter(!is.na(ccode)) %>%
+  select(-country)
+#merging with base data
+base_data <-  base_data %>%
+  left_join(pres, by = c("ccode", "month", "year")) 
+rm(pres)
+#make it visits within the last 6 months...
+base_data <- base_data %>%
+  group_by(ccode) %>%
+  arrange(ccode, year, month) %>%
+  mutate(visit=ifelse(is.na(visit), 0, visit)) %>%
+  mutate(v0=visit) %>%
+  mutate(v1=ifelse(ccode==lag(ccode), lag(visit), visit)) %>%
+  mutate(v2=ifelse(ccode==lag(ccode), lag(v1), visit)) %>%
+  mutate(v3=ifelse(ccode==lag(ccode), lag(v2), visit)) %>%
+  mutate(v4=ifelse(ccode==lag(ccode), lag(v3), visit)) %>%
+  mutate(v5=ifelse(ccode==lag(ccode), lag(v4), visit)) %>%
+  mutate(v0=ifelse(is.na(v0), 0, v0)) %>%
+  mutate(v1=ifelse(is.na(v1), 0, v1)) %>%
+  mutate(v2=ifelse(is.na(v2), 0, v2)) %>%
+  mutate(v3=ifelse(is.na(v3), 0, v3)) %>%
+  mutate(v4=ifelse(is.na(v4), 0, v4)) %>%
+  mutate(v5=ifelse(is.na(v5), 0, v5)) %>%
+  mutate(visit=v0+v1+v2+v3+v4+v5) %>%
+  select(-v0, -v1, -v2, -v3, -v4, -v5)
 
 #------------------------------------------------------------------------------------------------#
 #add regions
