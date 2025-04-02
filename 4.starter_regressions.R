@@ -88,6 +88,8 @@ months <-years %>%
   filter(year==2025)
 summary(months$month) #this is the last month in the regression, assuming we get it updated to 2025; we want this to be 3 or 4 (March or April)
 rm(years, months)
+base_data <- base_data %>%
+  select(-yhat)
 
 #------------------------------------------------------------------------------------------------#  
 #Pretty table of baseline model - NEED to replace var names with labels at some point
