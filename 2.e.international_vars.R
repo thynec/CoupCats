@@ -69,7 +69,7 @@ pres <- pres %>%
 base_data <-  base_data %>%
   left_join(pres, by = c("ccode", "month", "year")) 
 rm(pres)
-#make it visits within the last 6 months...
+#make it visits within the last 12 months...
 base_data <- base_data %>%
   group_by(ccode) %>%
   arrange(ccode, year, month) %>%
@@ -80,14 +80,23 @@ base_data <- base_data %>%
   mutate(v3=ifelse(ccode==lag(ccode), lag(v2), visit)) %>%
   mutate(v4=ifelse(ccode==lag(ccode), lag(v3), visit)) %>%
   mutate(v5=ifelse(ccode==lag(ccode), lag(v4), visit)) %>%
+  mutate(v6=ifelse(ccode==lag(ccode), lag(v5), visit)) %>%
+  mutate(v7=ifelse(ccode==lag(ccode), lag(v6), visit)) %>%
+  mutate(v8=ifelse(ccode==lag(ccode), lag(v7), visit)) %>%
+  mutate(v9=ifelse(ccode==lag(ccode), lag(v8), visit)) %>%
+  mutate(v10=ifelse(ccode==lag(ccode), lag(v9), visit)) %>%
+  mutate(v11=ifelse(ccode==lag(ccode), lag(v10), visit)) %>%
   mutate(v0=ifelse(is.na(v0), 0, v0)) %>%
   mutate(v1=ifelse(is.na(v1), 0, v1)) %>%
   mutate(v2=ifelse(is.na(v2), 0, v2)) %>%
   mutate(v3=ifelse(is.na(v3), 0, v3)) %>%
   mutate(v4=ifelse(is.na(v4), 0, v4)) %>%
   mutate(v5=ifelse(is.na(v5), 0, v5)) %>%
-  mutate(visit=v0+v1+v2+v3+v4+v5) %>%
-  select(-v0, -v1, -v2, -v3, -v4, -v5)
+  mutate(visit=v0+v1+v2+v3+v4+v5+v6+v7+v8+v9+v10+v11) %>%
+  mutate(visit=ifelse(visit>=1, 1, visit)) %>%
+  mutate(visit=ifelse(is.na(visit), 0, visit)) %>%
+  ungroup() %>%
+  select(-v0, -v1, -v2, -v3, -v4, -v5, -v6, -v7, -v8, -v9, -v10, -v11)
 
 #------------------------------------------------------------------------------------------------#
 #add regions
@@ -455,7 +464,7 @@ rm(check, dy, mon, yearly)
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
-#write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
+write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################  
 
