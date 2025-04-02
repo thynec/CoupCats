@@ -4,34 +4,23 @@
 
 #Building military-related variables
 
-#Priority vars:
-  #military quality (milex/milper) - COMPLETED
-
-#Secondary vars:
-  #counterbalancing
-  #civil-military data from Narang/Talmadge 2017
-  #purges from Sudduth
-  #military integration into politics (Croissan/Eschenauer/Kamerling Euro Pol Science)
-  #state security forces (De Bruin J. of Peace Research 2020)
-  #pro-government militias
-
 #1. clear all
-  rm(list = ls())
+rm(list = ls())
 #2. set working directory
-  #setwd("~/R/coupcats") # Set working file. 
-  setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-  #setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("~/R/coupcats") # Set working file. 
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
-  #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
-  #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
 #5. build baseline
-  source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
 
 #------------------------------------------------------------------------------------------------#
 #Milex from SIPRI
 #------------------------------------------------------------------------------------------------#  
-  
+
 url <- "https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1948-2023.xlsx"
 download.file(url, destfile = "~/SIPRI-Milex-data-1948-2023.xlsx", mode = "wb")
 sipri <- read_excel("~/SIPRI-Milex-data-1948-2023.xlsx", sheet = "Constant (2022) US$", skip=5)
@@ -59,7 +48,7 @@ check <- sipri %>%
   filter(is.na(ccode)) %>%
   select(-year, -sipri_milex) %>%
   distinct()
-View(check) #need Congo, DR=490; Congo, Rep=484; Yemen, North=678
+#View(check) #need Congo, DR=490; Congo, Rep=484; Yemen, North=678
 rm(check)
 sipri <- sipri %>%
   mutate(ccode=ifelse(country=="Congo, DR", 490, ccode)) %>%
@@ -73,6 +62,16 @@ sipri <- sipri %>%
   arrange(ccode, year) %>%
   mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, NA)) %>% #We're good
   select(-problem)
+#interpolate to get 2025
+sipri <- sipri %>%
+  group_by(ccode) %>%
+  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  uncount(expand) %>%
+  arrange(ccode, year) %>%
+  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
+  mutate(sipri_milex=ifelse(year==2025, NA, sipri_milex)) %>%
+  mutate(sipri_milex = if (sum(!is.na(sipri_milex)) >= 2) na.approx(sipri_milex, year, rule = 2) else sipri_milex) %>%
+  ungroup()
 base_data <- base_data %>%
   left_join(sipri, by=c("ccode", "year"))
 check <- base_data %>%
@@ -80,7 +79,7 @@ check <- base_data %>%
   distinct() %>%
   filter(!is.na(sipri_country)) %>%
   filter(country!=sipri_country)
-View(check) #looks good
+#View(check) #looks good
 rm(check, sipri)
 base_data <- base_data %>%
   select(-sipri_country)
@@ -90,15 +89,15 @@ base_data <- base_data %>%
 #------------------------------------------------------------------------------------------------#  
 
 #Bring in the NMC v6 data; available: https://correlatesofwar.org/data-sets/national-material-capabilities/
-  url <- "https://correlatesofwar.org/wp-content/uploads/NMC_Documentation-6.0.zip"
-  download.file(url, "data.zip")
-  unzip("data.zip", exdir="data")
-  unlink("data.zip")
-  unzip("data/NMC-60-wsupplementary.zip", exdir="NMC_data")
-  nmc <- read_dta("NMC_data/NMC-60-wsupplementary.dta")
-  unlink("data", recursive=TRUE)
-  unlink("NMC_data", recursive=TRUE)
-  rm(url)
+url <- "https://correlatesofwar.org/wp-content/uploads/NMC_Documentation-6.0.zip"
+download.file(url, "data.zip")
+unzip("data.zip", exdir="data")
+unlink("data.zip")
+unzip("data/NMC-60-wsupplementary.zip", exdir="NMC_data")
+nmc <- read_dta("NMC_data/NMC-60-wsupplementary.dta")
+unlink("data", recursive=TRUE)
+unlink("NMC_data", recursive=TRUE)
+rm(url)
 nmc <- nmc %>%
   select(statenme, ccode, year, milex, milper) %>%
   rename(cow_milex=milex) %>%
@@ -107,6 +106,25 @@ nmc <- nmc %>%
   mutate(year=year+1) %>% #just lagged
   mutate(cow_milex=ifelse(cow_milex<0, NA, cow_milex)) %>%
   mutate(cow_milper=ifelse(cow_milper<0, NA, cow_milper))
+#deal w/ missing
+check <- nmc %>%
+  filter(year>=1949) %>%
+  filter(is.na(cow_milex)) #feels like linear interpolation (but not extrapolation) should be fine for milex
+check <- nmc %>%
+  filter(year>1949) %>%
+  filter(is.na(cow_milper)) #feels like linear interpolation (but not extrapolation) should be fine for milper
+rm(check)
+nmc <- nmc %>%
+  group_by(ccode) %>%
+  filter(year>1949) %>%
+  mutate(cow_milex = if (sum(!is.na(cow_milex)) >= 2) na.approx(cow_milex, year, rule = 1, na.rm=FALSE) else cow_milex) %>%
+  ungroup()
+nmc <- nmc %>%
+  group_by(ccode) %>%
+  filter(year>1949) %>%
+  mutate(cow_milper = if (sum(!is.na(cow_milper)) >= 2) na.approx(cow_milper, year, rule = 1, na.rm=FALSE) else cow_milper) %>%
+  ungroup()
+#merge into base
 base_data <- base_data %>%
   left_join(nmc, by=c("ccode", "year"))
 check <- base_data %>%
@@ -114,8 +132,7 @@ check <- base_data %>%
   select(country, cow_country) %>%
   distinct() %>%
   filter(!is.na(cow_country)) %>%
-  filter(country!=cow_country)
-View(check) #looks good
+  filter(country!=cow_country) #looks good
 rm(check, nmc)
 cor.test(base_data$sipri_milex, base_data$cow_milex) #r=.867 so matching up about what we'd expect
 
@@ -133,6 +150,7 @@ df <- df %>%
 df <- df %>%
   group_by(ccode) %>%
   mutate(splice=cow_milex) %>%
+  mutate(ch=ifelse(ccode==101 & year==2018, 1, ch)) %>% #Ven 1018 weird because went from 0 to 1, so ch divided by 0; fixed it with this
   mutate(splice=ifelse(is.na(splice), lag(splice)*ch+lag(splice), splice))%>%
   mutate(splice=ifelse(is.na(splice), lag(splice)*ch+lag(splice), splice))%>%
   mutate(splice=ifelse(is.na(splice), lag(splice)*ch+lag(splice), splice))%>%
@@ -156,7 +174,7 @@ rm(df)
 #Milper from WDI
 #------------------------------------------------------------------------------------------------#  
 
-wdi <- WDI(country = "all", indicator = "MS.MIL.TOTL.P1", start = 1960, end = as.numeric(format(Sys.Date(), "%Y")), extra = TRUE)
+wdi <- WDI(country = "all", indicator = "MS.MIL.TOTL.P1", start = 1960, end = 2023)
 wdi <- wdi %>%
   select(country, year, MS.MIL.TOTL.P1) %>%
   rename(wdi_milper = MS.MIL.TOTL.P1) %>%
@@ -181,15 +199,22 @@ rm(check, wdi)
 base_data <- base_data %>%
   select(-wdi_country)
 
-#bounce it back to country year, splice, then re-merge
+#bounce it back to country year, deal with missing data in wdi, then splice
 df <- base_data %>%
   select(ccode, year, cow_milper, wdi_milper) %>%
   distinct()
+df <- df %>%
+  group_by(ccode) %>%
+  mutate(wdi_milper=if(sum(!is.na(wdi_milper)) >=2) na.approx(wdi_milper, year, rule=1, na.rm=FALSE) else wdi_milper) %>%
+  mutate(wdi_milper=if(sum(!is.na(wdi_milper)) >=2) na.approx(wdi_milper, year, rule=2, na.rm=FALSE) else wdi_milper) %>%
+  ungroup()
 df <- df %>%
   mutate(ch=((wdi_milper-lag(wdi_milper))/lag(wdi_milper))) 
 df <- df %>%
   group_by(ccode) %>%
   mutate(splice=cow_milper) %>%
+  mutate(splice=ifelse(is.na(splice), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice), lag(splice)*ch+lag(splice), splice)) %>%
@@ -209,6 +234,18 @@ base_data <- base_data %>%
   mutate(milper=log(milper_spliced+1)) %>%
   mutate(solqual=milex/(milper+1)) %>%
   select(-milex_spliced, -milper_spliced)
+
+###############################################################################################
+#Checked through above and ready to produce .csv and upload to github
+#clean up if needed and export
+write.csv(base_data, gzfile("2.d.base_data.csv.gz"), row.names = FALSE)
+#Now push push the file that was just written to the working directory to github
+###############################################################################################  
+
+
+
+
+
 
 #------------------------------------------------------------------------------------------------#
 # military integration into politics (Croissan/Eschenauer/Kamerling Euro Pol Science - PRM Dataset)
@@ -231,7 +268,7 @@ PRM$ccode <- as.numeric(PRM$ccode) #Convert PRM$ccode from Character to Numeric
 
 base_data <- base_data %>% 
   left_join(PRM, by=c("ccode", "year")) #just merge then
-  
+
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
@@ -243,10 +280,10 @@ write.csv(base_data, gzfile("2.d.base_data.csv.gz"), row.names = FALSE)
 #------------------------------------------------------------------------------------------------#
 #below is stuff we probably won't use
 #note that we want total milex in constant dollars, which WDI no longer provides; that's why I'm using
-  #SIPRI plus COW above
+#SIPRI plus COW above
 #------------------------------------------------------------------------------------------------#    
-  
-  
+
+
 
 
 
@@ -261,131 +298,130 @@ df <- df %>%
 
 
 
-  
-  
-  
-  
-  
-  
-  wdi_data <- WDI(indicator = c("MS.MIL.XPND.KD"), country="all", start = 1960, end = 2023)
-  
-  
-  
-  wdi_data <- WDI(indicator = c("MS.MIL.XPND.KD"), country = "all", start = 1996, end = 2023, extra = TRUE) # Data are reported every two years--need to figure out a way to transform.   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  #Loading data
-  url <- "https://api.worldbank.org/v2/en/indicator/MS.MIL.XPND.CD.?downloadformat=excel"
-  destfile <- "MS_MIL_XPND_CD.xls"
-  curl::curl_download(url, destfile)
-  milex <- read_excel(destfile, skip = 3)
-  rm(destfile, url)worl
-  
-  #Reshaping data
-  milex <- milex %>%
-    rename( "country" = `Country Name`) %>% 
-    subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`))  #removing things we don't want
-  milex <- milex %>%
-    pivot_longer(
-      cols = -c(country),  # Keep country-related columns fixed
-      names_to = "year",  
-      values_to = "military expenditure"
-    ) %>%
-    mutate(year = as.integer(year))  # Convert Year to integer
-  
-  #merge to base
-  milex <- milex %>%
-    rename(milex='military expenditure') %>%
-    set_variable_labels(milex="Milit expenditure, % of GDP") %>%
-    mutate(year=year+1) #lagged
-  milex <- milex %>%
-    left_join(ccodes, by=c("country", "year"))
-  check <- milex %>%
-    filter(is.na(ccode)) %>%
-    select(-year, -milex) %>%
-    distinct()
-  View(check) #need to fix turkey=640
-  milex <- milex %>%
-    mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
-  rm(check)
-  milex <- milex %>%
-    rename(wdi_country=country)
-  base_data <- base_data %>%
-    left_join(milex, by=c("ccode", "year"))
-  rm(milex)
-  check <- base_data %>%
-    select(country, wdi_country) %>%
-    filter(country!=wdi_country) %>%
-    distinct()
-  View(check) #looks good
-  rm(check)
-  
-  #------------------------------------------------------------------------------------------------#
-  #milper from WB
-  #------------------------------------------------------------------------------------------------#  
-  
-  #Loading data
-  url <- "https://api.worldbank.org/v2/en/indicator/MS.MIL.TOTL.P1?downloadformat=excel"
-  destfile <- "MS_MIL_TOTL.xls"
-  curl::curl_download(url, destfile)
-  milper <- read_excel(destfile, skip = 3)
-  rm(destfile, url)
-  
-  #Reshaping data; cleaning a bit
-  milper <- milper %>%
-    rename( "country" = `Country Name`) %>% 
-    subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`)) #removing things we don't want
-  milper <- milper %>%
-    pivot_longer(
-      cols = -c(country),  # Keep country-related columns fixed
-      names_to = "year",  
-      values_to = "milper"
-    ) %>%
-    mutate(year = as.integer(year))  # Convert Year to integer
-  
-  #merge to base
-  milper <- milper %>%
-    rename(milper='military personell') %>%
-    set_variable_labels(milper="Milit expenditure, % of GDP") %>%
-    mutate(year=year+1) #lagged
-  milex <- milex %>%
-    left_join(ccodes, by=c("country", "year"))
-  check <- milex %>%
-    filter(is.na(ccode)) %>%
-    select(-year, -milex) %>%
-    distinct()
-  View(check) #need to fix turkey=640
-  milex <- milex %>%
-    mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
-  rm(check)
-  milex <- milex %>%
-    rename(wdi_country=country)
-  base_data <- base_data %>%
-    left_join(milex, by=c("ccode", "year"))
-  rm(milex)
-  check <- base_data %>%
-    select(country, wdi_country) %>%
-    filter(country!=wdi_country) %>%
-    distinct()
-  View(check) #looks good
-  rm(check)
-  
-  
-  
-  
-  
-  
-  
-  #------------------------------------------------------------------------------------------------#  
-  #milex, milper info from peacesciencer
-  #------------------------------------------------------------------------------------------------#  
-  
-  
+
+
+
+
+
+
+wdi_data <- WDI(indicator = c("MS.MIL.XPND.KD"), country="all", start = 1960, end = 2023)
+
+
+
+wdi_data <- WDI(indicator = c("MS.MIL.XPND.KD"), country = "all", start = 1996, end = 2023, extra = TRUE) # Data are reported every two years--need to figure out a way to transform.   
+
+
+
+
+
+
+
+
+
+#Loading data
+url <- "https://api.worldbank.org/v2/en/indicator/MS.MIL.XPND.CD.?downloadformat=excel"
+destfile <- "MS_MIL_XPND_CD.xls"
+curl::curl_download(url, destfile)
+milex <- read_excel(destfile, skip = 3)
+rm(destfile, url)worl
+
+#Reshaping data
+milex <- milex %>%
+  rename( "country" = `Country Name`) %>% 
+  subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`))  #removing things we don't want
+milex <- milex %>%
+  pivot_longer(
+    cols = -c(country),  # Keep country-related columns fixed
+    names_to = "year",  
+    values_to = "military expenditure"
+  ) %>%
+  mutate(year = as.integer(year))  # Convert Year to integer
+
+#merge to base
+milex <- milex %>%
+  rename(milex='military expenditure') %>%
+  set_variable_labels(milex="Milit expenditure, % of GDP") %>%
+  mutate(year=year+1) #lagged
+milex <- milex %>%
+  left_join(ccodes, by=c("country", "year"))
+check <- milex %>%
+  filter(is.na(ccode)) %>%
+  select(-year, -milex) %>%
+  distinct()
+#View(check) #need to fix turkey=640
+milex <- milex %>%
+  mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
+rm(check)
+milex <- milex %>%
+  rename(wdi_country=country)
+base_data <- base_data %>%
+  left_join(milex, by=c("ccode", "year"))
+rm(milex)
+check <- base_data %>%
+  select(country, wdi_country) %>%
+  filter(country!=wdi_country) %>%
+  distinct()
+View(check) #looks good
+rm(check)
+
+#------------------------------------------------------------------------------------------------#
+#milper from WB
+#------------------------------------------------------------------------------------------------#  
+
+#Loading data
+url <- "https://api.worldbank.org/v2/en/indicator/MS.MIL.TOTL.P1?downloadformat=excel"
+destfile <- "MS_MIL_TOTL.xls"
+curl::curl_download(url, destfile)
+milper <- read_excel(destfile, skip = 3)
+rm(destfile, url)
+
+#Reshaping data; cleaning a bit
+milper <- milper %>%
+  rename( "country" = `Country Name`) %>% 
+  subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`)) #removing things we don't want
+milper <- milper %>%
+  pivot_longer(
+    cols = -c(country),  # Keep country-related columns fixed
+    names_to = "year",  
+    values_to = "milper"
+  ) %>%
+  mutate(year = as.integer(year))  # Convert Year to integer
+
+#merge to base
+milper <- milper %>%
+  rename(milper='military personell') %>%
+  set_variable_labels(milper="Milit expenditure, % of GDP") %>%
+  mutate(year=year+1) #lagged
+milex <- milex %>%
+  left_join(ccodes, by=c("country", "year"))
+check <- milex %>%
+  filter(is.na(ccode)) %>%
+  select(-year, -milex) %>%
+  distinct()
+#View(check) #need to fix turkey=640
+milex <- milex %>%
+  mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
+rm(check)
+milex <- milex %>%
+  rename(wdi_country=country)
+base_data <- base_data %>%
+  left_join(milex, by=c("ccode", "year"))
+rm(milex)
+check <- base_data %>%
+  select(country, wdi_country) %>%
+  filter(country!=wdi_country) %>%
+  distinct()
+#View(check) #looks good
+rm(check)
+
+
+
+
+
+
+
+#------------------------------------------------------------------------------------------------#  
+#milex, milper info from peacesciencer
+#------------------------------------------------------------------------------------------------#  
+
 
