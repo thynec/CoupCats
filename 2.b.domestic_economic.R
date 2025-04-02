@@ -201,6 +201,11 @@ FP_CPI <- FP_CPI %>%
   rename(country = `Country Name`) %>% 
   left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
   filter(!is.na(ccode))
+FP_CPI <- FP_CPI %>% 
+  select(-`country`)
+base_data <- base_data %>%
+  left_join(FP_CPI, by = c("ccode", "year"))
+
 
 #Bringing in Thyne/Mitchell dataset
 url <- "http://www.uky.edu/~clthyn2/mitchell_thyne_CMPS2010.zip"
