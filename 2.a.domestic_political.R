@@ -351,7 +351,6 @@ base_data <- base_data %>%
 
 #------------------------------------------------------------------------------------------------#
 # Gender data (V-Dem) 
-#------------------------------------------------------------------------------------------------#  
 
 gender_data <- vdem %>%
   subset(select = c(country_name, # Country. 
@@ -388,10 +387,6 @@ base_data <- base_data %>%
   subset(select = -c(mcountry))
 rm(gender_data) 
 
-
-
-
-
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
@@ -399,30 +394,9 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ###############################################################################################
 #Below is stuff we probably won't use but keeping it here just in case...
 ###############################################################################################
-
-
-
-
-
-
 
 # -------------------------- Political Data ------------------------------ #
 #
@@ -765,7 +739,6 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #base_data <- base_data %>% 
 #  left_join(vdem_civlib, by = c("ccode", "year"))  
 #rm(vdem_civlib)
-
 
 # 3. Age population data (World Bank Data Group 2024).
 # 3.1. Reading in data. 
