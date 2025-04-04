@@ -218,53 +218,39 @@ CPI <- CPI %>%
   select(ccode1, ccode2, year, CPI_issue, CPI)
 
 #------------------------------------------------------------------------------------------------#      
-#building Natural Resource Rents, Natural Gas Rents, Debt Service
+# VARIABLES PULLED FROM WORLD BANK: RESOURCE RENTS, DEBT, TOURISM, GINI
 #------------------------------------------------------------------------------------------------# 
-# Pull variables from World Bank API
-ntg_data <- wb_data(
-  indicator = "NY.GDP.NGAS.RT.ZS",  # Natural Gas Rents
-  country = "all",  # Use "all" for all countries
-  start_date = 1950,
-  end_date = 2025
-)
-ntr_data <- wb_data(
-  indicator = "NY.GDP.TOTL.RT.ZS",  # Natural Resource Rents
-  country = "all",  # Use "all" for all countries
-  start_date = 1950,
-  end_date = 2025
-)
-dbt_data <- wb_data(
-  indicator = "DT.TDS.DECT.GN.ZS",  # Total Debt % of GNI
-  country = "all",  # Use "all" for all countries
-  start_date = 1950,
-  end_date = 2025
-)
+indicators <- list("DT.ODA.ODAT.GN.ZS", "NY.GDP.NGAS.RT.ZS", "NY.GDP.TOTL.RT.ZS", "DT.TDS.DECT.GN.ZS",
+                   "ST.INT.RCPT.CD", "ST.INT.XPND.CD", "SI.POV.GINI")
+main <- base_data %>%
+  select("ccode", "year", "month")
 
-# Remove unwanted variables
-ntg_data <- ntg_data %>%
-  select(-unit, -obs_status, -footnote, -last_updated, -iso2c, -iso3c)
-ntr_data <- ntr_data %>%
-  select(-unit, -obs_status, -footnote, -last_updated, -iso2c, -iso3c)
-main <- dbt_data %>%
-  select(-unit, -obs_status, -footnote, -last_updated, -iso2c, -iso3c) %>%
-  left_join(ntg_data, by = c("country", "date")) %>%
-  left_join(ntr_data, by = c("country", "date")) %>%
-  rename("year"=date, "debt"=DT.TDS.DECT.GN.ZS, 
-         "NG Rents"=NY.GDP.NGAS.RT.ZS,"NR Rents"=NY.GDP.TOTL.RT.ZS)
-# All data contained within 'main', the rest is superfluous
-rm(ntg_data, ntr_data, dbt_data)
+for (i in indicators) {
+  wb.data <- wb_data(
+    indicator = i,
+    country = "all",  # Use "all" for all countries
+    start_date = 1950,
+    end_date = 2025)
+  
+  wb.data <- wb.data %>%
+    select(-unit, -obs_status, -footnote, -last_updated, -iso2c, -iso3c) %>%
+    rename("year"=date) %>%
+    left_join(ccodes, by = c("country", "year")) %>%
+    select(-"country") %>%
+    distinct()
+  
+  main <- main %>%
+    left_join(wb.data, by = c("ccode", "year"))
+}
+rm(wb.data)
 
-# Bring in ccodes, remove the country name 
-# (removes any conflict with base_data country names)
 main <- main %>%
-  left_join(ccodes, by = c("country", "year")) %>%
-  dplyr::select(-country) %>%
-  distinct()
-
+  rename('oda'=DT.ODA.ODAT.GN.ZS, "ngas"=NY.GDP.NGAS.RT.ZS, "nr_rents"=NY.GDP.TOTL.RT.ZS, "debt"=DT.TDS.DECT.GN.ZS, 
+         "trsm_inflows"=ST.INT.RCPT.CD, "trsm_outflows"=ST.INT.XPND.CD, "gini"=SI.POV.GINI)
 # Merge the variables with base_data
-base_data <- base_data %>%
-  left_join(main, by = c("ccode", "year"))
-rm(main)
+  base_data <- base_data %>%
+    left_join(main, by = c("ccode", "year", "month"))
+  rm(main)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
