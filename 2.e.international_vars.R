@@ -469,6 +469,54 @@ write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 ###############################################################################################  
 
 
+#------------------------------------------------------------------------------------------------#
+# Add regional contagion. 
+#------------------------------------------------------------------------------------------------#  
+
+# Bringing in border states. 
+border_states <- create_dyadyears() %>%
+  add_contiguity() %>%
+  filter(year >= 1950) %>%
+  filter(conttype %in% c(1, 2)) # Land borders and very close maritime borders. 
+border_states <- border_states %>%
+  rename(ccode = ccode1,
+         neighbor = ccode2,
+         border_type = conttype) # Where ccode is primary state, neighbor is coup-victim. 
+
+
+# Bringing in coup data.
+coup_data <- read_delim("http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coups_final.txt", 
+                        delim = "\t", escape_double = FALSE, 
+                        trim_ws = TRUE) 
+coup_data <- coup_data %>% 
+  mutate(coup = ifelse(ccode == 451 & year == 1967 & month == 3, 2, coup),
+         coup_successful = ifelse(coup == 2, 1, NA),
+         coup_failed = ifelse(coup == 1, 1, NA),
+         coup_attempt = 1) %>%
+  select(-ccode_gw, -ccode_polity, -day, -version) %>%
+  distinct() %>% 
+  mutate(coup_attempt = ifelse(is.na(coup_attempt) & year >= 1950, 0, as.numeric(coup_attempt)),
+         coup_successful = ifelse(is.na(coup_successful) & year >= 1950, 0, as.numeric(coup_successful)),
+         coup_failed = ifelse(is.na(coup_failed) & year >= 1950, 0, as.numeric(coup_failed)))
+
+# Merging data sets. 
+regional_contagion <- border_states %>% 
+  left_join(coup_data, by = c("year", "neighbor" = "ccode"), relationship = "many-to-many") %>%
+  select(-country) %>%
+  mutate(neighbor = labelled(neighbor, label = "coup states")) %>%
+  drop_na()
+rm(coup_data, border_states)
+
+# Mutating regional contagion. 
+regional_contagion <- regional_contagion %>%
+  mutate(neighboring_coup = case_when(coup_attempt == 1 ~ 1, TRUE ~ 0), relationship = "many-to-many") %>%
+  select(ccode, month, year, neighbor, neighboring_coup)
+
+# Merging into base data. 
+base_data <- base_data %>%
+  left_join(regional_contagion, by = c("year", "month", "ccode"), relationship = "many-to-many") %>%
+  mutate(neighbor = replace_na(neighbor, 0)) %>%
+  mutate(neighboring_coup = replace_na(neighboring_coup, 0))
 
 
 
