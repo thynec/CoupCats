@@ -179,6 +179,7 @@ rm(df)
 #building CPI
 #------------------------------------------------------------------------------------------------# 
 
+
 #Bringing in CPI data from world bank, using 2010 as base year
 url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
 destfile <- "FP_CPI.xls"
@@ -207,6 +208,145 @@ base_data <- base_data %>%
   left_join(FP_CPI, by = c("ccode", "year"))
 
 
+#Bringing in IMF CPI - All measured using different base years
+IMF_cpi <- read_csv("https://www.uky.edu/~clthyn2/IMF_cpi.csv")
+
+#Cleaning dataset
+IMF_cpi <- IMF_cpi %>%
+  select(-matches("^(19[0-4][0-9]($|-M[0-9]{2}))")) %>% #removing data from 1900-1949
+  select(-matches("^(19[0-4][0-9])-Q[1-4]$")) %>% #removing quarterly data prior to 1950
+  filter(INDEX_TYPE != "Harmonised index of consumer prices (HICP)") %>% #obtaining only the CPI data
+  select(4:8, 16:21, 46:1324) #removing unnecessary columns
+
+IMF_cpi <- IMF_cpi %>%  
+  filter(TYPE_OF_TRANSFORMATION == "Index") %>% #obtaining only index values
+  filter(COICOP_1999 == "All Items") #only overall index and not individual goods
+
+IMF_cpi <- IMF_cpi %>% 
+  select(-`INDEX_TYPE`, -`COICOP_1999`, -`TYPE_OF_TRANSFORMATION`, -`OVERLAP`, -`STATUS`, -`IFS_FLAG`, -`DOI`)
+
+#Separating data into different datasets
+IMF_cpi_years <- IMF_cpi %>% #Separating yearly data to begin correctly merging data
+  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, matches("^[0-9]{4}$"))  # Keeps only yearly columns
+IMF_cpi_quarters <- IMF_cpi %>% #Separating quarterly data to begin correctly merging data
+  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, matches("^[0-9]{4}-Q[1-4]$"))  # Keeps only quarterly columns
+IMF_cpi_months <- IMF_cpi %>% #Separating monthly data to begin correctly merging data
+  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, matches("^[0-9]{4}-M[0-9]{2}$")) #Keep only monthly columns
+
+#Cleaning the main dataset for IMF to merge in CPI data
+IMF_cpi <- IMF_cpi %>%
+  select(COUNTRY) %>%
+  distinct(COUNTRY, .keep_all = TRUE)
+countries <- unique(IMF_cpi$COUNTRY)
+IMF_cpi <- expand.grid(
+    COUNTRY = countries,
+    Year = 1950:2025,
+    Month = 1:12
+  ) %>%
+  mutate(
+    Quarter = case_when(
+      Month %in% 1:3 ~ 1,
+      Month %in% 4:6 ~ 2,
+      Month %in% 7:9 ~ 3,
+      Month %in% 10:12 ~ 4
+    )
+  )
+  
+IMF_cpi <- IMF_cpi %>%
+  arrange(COUNTRY, Year, Month) %>%
+  rename(year = Year) %>%
+  rename(country = `COUNTRY`) %>%
+  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
+  filter(!is.na(ccode))
+
+#Begin Work on Monthly sub-dataset
+IMF_cpi_months <- IMF_cpi_months %>% #Cleaning monthly data
+  filter(FREQUENCY == "Monthly") %>%
+  pivot_longer(
+    cols = matches("^[0-9]{4}-M[0-9]{2}$"),  # Select only monthly columns (e.g., "1950-M01")
+    names_to = "Time",      # New column to store the original month-year labels
+    values_to = "CPI_Value" # Store the actual CPI values
+  ) %>%
+  mutate(
+    Year = as.numeric(substr(Time, 1, 4)),  # Extract year from "1950-M01"
+    Month = as.numeric(substr(Time, 7, 8)) # Extract month (e.g., "01" -> 1)
+  ) %>%
+  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, Year, Month, CPI_Value)
+IMF_cpi_months <- IMF_cpi_months %>%
+  rename(year = Year) %>%
+  rename(country = `COUNTRY`) %>%
+  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
+  filter(!is.na(ccode))
+IMF_cpi_months <- IMF_cpi_months %>% #rename variable as monthly cpi data
+  rename(cpi_monthly = CPI_Value)
+IMF_cpi_months <- IMF_cpi_months %>% 
+  select(-`FREQUENCY`, -`REFERENCE_PERIOD`, -`COMMON_REFERENCE_PERIOD`, -`country`)
+IMF_cpi <- IMF_cpi %>%  #merging monthly back into main data set
+  left_join(IMF_cpi_months, by = c("ccode", "year", "Month"))
+rm(IMF_cpi_months)
+
+#Begin Work on Quarterly sub-dataset
+IMF_cpi_quarters <- IMF_cpi_quarters %>% #Cleaning Quarterly data
+  filter(FREQUENCY == "Quarterly") %>%
+  pivot_longer(
+    cols = matches("^[0-9]{4}-Q[1-4]$"),  # Select only quarterly columns (e.g., "1950-Q1")
+    names_to = "Time",      # New column to store the original quarter-year labels
+    values_to = "CPI_Value" # Store the actual CPI values
+  ) %>%
+  mutate(
+    Year = as.numeric(substr(Time, 1, 4)),  # Extract year from "1950-Q1"
+    Quarter = as.numeric(substr(Time, 7, 7)) # Extract quarter (e.g., "1" -> 1)
+  ) %>%
+  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, Year, Quarter, CPI_Value)
+IMF_cpi_quarters <- IMF_cpi_quarters %>%
+  rename(year = Year) %>%
+  rename(country = `COUNTRY`) %>%
+  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
+  filter(!is.na(ccode))
+IMF_cpi_quarters <- IMF_cpi_quarters %>% #rename variable as quarterly cpi data
+  rename(cpi_quarterly = CPI_Value) 
+IMF_cpi_quarters <- IMF_cpi_quarters %>% 
+  select(-`FREQUENCY`, -`REFERENCE_PERIOD`, -`COMMON_REFERENCE_PERIOD`, -`country`)
+IMF_cpi <- IMF_cpi %>%  #merging quarterly back into main data set
+  left_join(IMF_cpi_quarters, by = c("ccode", "year", "Quarter"))
+rm(IMF_cpi_quarters)
+
+#Begin Work on Yearly sub-dataset
+IMF_cpi_years <- IMF_cpi_years %>% #Cleaning Yearly data
+  filter(FREQUENCY == "Annual") %>%
+  pivot_longer(
+    cols = matches("^[0-9]{4}$"),  # Select only yearly columns (e.g., "1950")
+    names_to = "Year",       # New column to store original year labels
+    values_to = "CPI_Value"  # Store CPI values
+  ) %>%
+  mutate(
+    Year = as.numeric(Year)  # Convert Year from character to numeric
+  ) %>%
+  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, Year, CPI_Value)
+IMF_cpi_years <- IMF_cpi_years %>%
+  rename(year = Year) %>%
+  rename(country = `COUNTRY`) %>%
+  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
+  filter(!is.na(ccode))
+IMF_cpi_years <- IMF_cpi_years %>% #rename variable as yearly cpi data
+  rename(cpi_yearly = CPI_Value) 
+IMF_cpi_years <- IMF_cpi_years %>% 
+  select(-`FREQUENCY`, -`REFERENCE_PERIOD`, -`COMMON_REFERENCE_PERIOD`, -`country`)
+IMF_cpi <- IMF_cpi %>%  #merging yearly back into main data set
+  left_join(IMF_cpi_years, by = c("ccode", "year"))
+rm(IMF_cpi_years)
+
+
+#Interpolation and creating percent change
+IMF_cpi <- IMF_cpi %>%
+  mutate(CPI = cpi_monthly)
+IMF_cpi <- IMF_cpi %>%
+  group_by(ccode) 
+
+#Bringing in UNdata for CPI
+un <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/UNdata_Export_20250402_172632368.csv")
+
+         
 #Bringing in Thyne/Mitchell dataset
 url <- "http://www.uky.edu/~clthyn2/mitchell_thyne_CMPS2010.zip"
 download.file(url, "data.zip")
