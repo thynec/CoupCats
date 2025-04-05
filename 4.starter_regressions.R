@@ -80,6 +80,37 @@ coup_logit <- feglm(coup_attempt ~
                     data = base_data, family = 'binomial', cluster = ~ccode)
 summary(coup_logit)
 
+#---------------------------------------------------------------------------------------------------------------------
+coup_logit2 <- feglm(coup_attempt ~ polyarchy + polyarchy2 + milreg + liberal_democracy + #2.a. domestic political
+                       lgdppcl + ch_gdppcl + #2.b. domestic economic
+                       cw + mobilization +  #2.c. political instability
+                       milit_dimension + solqual + #2.d. military vars
+                       visit + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                       pce + pce2 + pce3, #autocorrelation vars, 
+                     data = base_data, family = 'binomial', cluster = ~ccode)
+# Get log-likelihoods for both models
+logLik_coup_logit <- logLik(coup_logit)
+logLik_coup_logit2 <- logLik(coup_logit2)
+
+# Compute the Likelihood Ratio statistic (2 * difference in log-likelihoods)
+LRT_statistic <- 2 * (logLik_coup_logit2 - logLik_coup_logit)
+
+# Degrees of freedom is the difference in the number of parameters (predictors)
+df <- length(coef(coup_logit2)) - length(coef(coup_logit))
+
+# Compute the p-value using the chi-squared distribution
+p_value <- 1 - pchisq(LRT_statistic, df)
+
+# Print the result
+cat("LRT Statistic:", LRT_statistic, "\n")
+cat("Degrees of Freedom:", df, "\n")
+cat("P-value:", p_value, "\n")
+
+#Liberal democracy significantly adds to the model (tested the other three and they did not, so my guess is this one alone would be the reason for significance
+coup_logit <- coup_logit2
+#---------------------------------------------------------------------------------------------------------------------
+
+
 base_data$yhat <- predict(coup_logit, newdata=base_data, type="response")
 years <- base_data %>%
   filter(!is.na(yhat))
@@ -207,14 +238,18 @@ rm(formatted_table)
 
 
 # Filtering out rows with NAs. 
-columns <- c("pres_elec_lag", "polyarchy", "polyarchy2", 
-             "lgdppcl", "ch_gdppcl", 
-             "cw", 
-             "cold", "e_asia_pacific", "LA_carrib", "MENA", "N_america", "S_asia", "Sub_africa", 
-             "pce", "pce2", "pce3")
+columns <- c(
+  "polyarchy", "polyarchy2", "milreg",                 # 2.a. domestic political
+  "lgdppcl", "ch_gdppcl",                               # 2.b. domestic economic
+  "cw", "mobilization",                                 # 2.c. political instability
+  "milit_dimension", "solqual",                         # 2.d. military vars
+  "visit", "cold", "ltrade", 
+  "e_asia_pacific", "LA_carrib", "MENA", "N_america", "S_asia", "Sub_africa",  # intl vars
+  "pce", "pce2", "pce3"
+)
 
 base_data2 <- base_data[complete.cases(base_data[, ..columns]), ] 
-
+rm(columns)
 
 
 
@@ -433,11 +468,11 @@ vif(coup_probit)
 #heteroscedasticity test (check in OLS)
 #run linear model 
 OLS_coup <- lm(coup_attempt ~ 
-                 pres_elec_lag + polyarchy + polyarchy2 + #2.a. domestic political
+                 polyarchy + polyarchy2 + milreg + #2.a. domestic political
                  lgdppcl + ch_gdppcl + #2.b. domestic economic
-                 cw + #2.c. political instability
-                 #NEED military vars here
-                 cold + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                 cw + mobilization +  #2.c. political instability
+                 milit_dimension + solqual + #2.d. military vars
+                 visit + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                  pce + pce2 + pce3, #autocorrelation vars, 
                data = base_data)
 
