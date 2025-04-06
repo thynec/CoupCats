@@ -81,24 +81,24 @@ coup_logit <- feglm(coup_attempt ~
 summary(coup_logit)
 
 #---------------------------------------------------------------------------------------------------------------------
-coup_logit2 <- feglm(coup_attempt ~ polyarchy + polyarchy2 + milreg + liberal_democracy + #2.a. domestic political
+coup_logit2 <- feglm(coup_attempt ~  milreg + closed_autocracy + electoral_autocracy + electoral_democracy + liberal_democracy + #2.a. domestic political
                        lgdppcl + ch_gdppcl + #2.b. domestic economic
                        cw + mobilization +  #2.c. political instability
                        milit_dimension + solqual + #2.d. military vars
                        visit + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                        pce + pce2 + pce3, #autocorrelation vars, 
                      data = base_data, family = 'binomial', cluster = ~ccode)
-# Get log-likelihoods for both models
+# 1. Get log-likelihoods for both models
 logLik_coup_logit <- logLik(coup_logit)
 logLik_coup_logit2 <- logLik(coup_logit2)
 
-# Compute the Likelihood Ratio statistic (2 * difference in log-likelihoods)
+# 2. Compute the Likelihood Ratio statistic (2 * difference in log-likelihoods)
 LRT_statistic <- 2 * (logLik_coup_logit2 - logLik_coup_logit)
 
-# Degrees of freedom is the difference in the number of parameters (predictors)
+# 3. Degrees of freedom is the difference in the number of parameters (predictors)
 df <- length(coef(coup_logit2)) - length(coef(coup_logit))
 
-# Compute the p-value using the chi-squared distribution
+# 4. Compute the p-value using the chi-squared distribution
 p_value <- 1 - pchisq(LRT_statistic, df)
 
 # Print the result
@@ -106,7 +106,7 @@ cat("LRT Statistic:", LRT_statistic, "\n")
 cat("Degrees of Freedom:", df, "\n")
 cat("P-value:", p_value, "\n")
 
-#Liberal democracy significantly adds to the model (tested the other three and they did not, so my guess is this one alone would be the reason for significance
+#when polyarchy and polyarchy^2 excluded all 4 dummies are significantly adding to the model
 coup_logit <- coup_logit2
 #---------------------------------------------------------------------------------------------------------------------
 
