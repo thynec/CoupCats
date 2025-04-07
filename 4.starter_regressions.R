@@ -73,24 +73,19 @@ write.csv(base_data, "base_data.csv", row.names = FALSE)
 
 #logit with coup attempt as dv
 #Clay added robust SEs on 03/19/25; use this format for other regressions (feglm<-glm at beginning; 'cluster = ~ccode' at end))
-coup_logit <- feglm(coup_attempt ~ 
-                      polyarchy + polyarchy2 + milreg + #2.a. domestic political
-                      lgdppcl + ch_gdppcl + #2.b. domestic economic
+coup_logit <- feglm(coup_attempt ~  milreg + closed_autocracy  + liberal_democracy + #2.a. domestic political
+                      lgdppcl + ch_gdppcl + ltrade + #2.b. domestic economic
                       cw + mobilization +  #2.c. political instability
-                      milit_dimension + solqual + #2.d. military vars
+                      milit_dimension + solqual + milper + milex #2.d. military vars
                       visit + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                       pce + pce2 + pce3, #autocorrelation vars, 
                     data = base_data, family = 'binomial', cluster = ~ccode)
 summary(coup_logit)
 
 #---------------------------------------------------------------------------------------------------------------------
-coup_logit2 <- feglm(coup_attempt ~  milreg + closed_autocracy + electoral_autocracy + electoral_democracy + liberal_democracy + #2.a. domestic political
-                       lgdppcl + ch_gdppcl + #2.b. domestic economic
-                       cw + mobilization +  #2.c. political instability
-                       milit_dimension + solqual + #2.d. military vars
-                       visit + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
-                       pce + pce2 + pce3, #autocorrelation vars, 
-                     data = base_data, family = 'binomial', cluster = ~ccode)
+#log likelihood for addding variables 
+#add regression coup_logit2 here
+
 # 1. Get log-likelihoods for both models
 logLik_coup_logit <- logLik(coup_logit)
 logLik_coup_logit2 <- logLik(coup_logit2)
@@ -231,7 +226,7 @@ formatted_table <- tab_header(
   subtitle = md("*Effect of Social and Military variables on Coup Attempts")) 
 formatted_table <- tab_source_note(
   formatted_table,
-  source_note = "Significant p-values are highlighted in red.")
+  source_note = "Significant p-values are highlighted in blue.")
 
 print(formatted_table)
 rm(model_summary, formatted_table)
@@ -259,13 +254,13 @@ formatted_table <- tab_header(
   subtitle = md("*Average Marginal Effects from Logistic Regression*"))
 formatted_table <- tab_source_note(
   formatted_table,
-  source_note = "Significant p-values are highlighted in red.")
+  source_note = "Significant p-values are highlighted in blue.")
 
 print(formatted_table)
 rm(formatted_table)
 
 
-# Filtering out rows with NAs. 
+# Filtering out rows with NAs. (wont need when we fill NAs)
 columns <- c(
   "polyarchy", "polyarchy2", "milreg",                 # 2.a. domestic political
   "lgdppcl", "ch_gdppcl",                               # 2.b. domestic economic
