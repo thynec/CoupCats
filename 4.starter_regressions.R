@@ -1,3 +1,4 @@
+
 #------------------------------------------------------------------------------------------------#
 #Front-end stuff
 #------------------------------------------------------------------------------------------------#  
@@ -9,11 +10,13 @@ rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
 #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+setwd("C:/Users/jsequ/OneDrive - University of Kentucky/[01] University/[03] Junior Year/[02] Spring Semester 25/TEK") #Jose
+
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
-#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
 #------------------------------------------------------------------------------------------------#
 #merge DFs together
 #------------------------------------------------------------------------------------------------#
@@ -111,42 +114,67 @@ coup_logit <- coup_logit2
 #---------------------------------------------------------------------------------------------------------------------
 
 
-base_data$yhat <- predict(coup_logit, newdata=base_data, type="response")
+base_data$prediction_prob <- predict(coup_logit, newdata=base_data, type="response")
 years <- base_data %>%
-  filter(!is.na(yhat))
+  filter(!is.na(prediction_prob))
 summary(years$year) #these are the years that were included in the last regression; we want this to be 2025
 months <-years %>%
   filter(year==2025)
 summary(months$month) #this is the last month in the regression, assuming we get it updated to 2025; we want this to be 3 or 4 (March or April)
 rm(years, months)
+
+
+#------------------------------------------------------------------------------------------------#
+# Gets only the most recent year month in the data (for website)                                 #
+#------------------------------------------------------------------------------------------------#
+# Get current date
+current_date <- Sys.Date()
+
+# Get year and month of the most recent *complete* month
+latest_year <- as.integer(format(current_date, "%Y"))
+latest_month <- as.integer(format(current_date, "%m")) - 1
+
+# Adjust for January (need to go back to December of previous year)
+if (latest_month == 0) {
+  latest_month <- 12
+  latest_year <- latest_year - 1
+}
+
+# Filter base_data for only the most recent complete month
+recent_data <- subset(base_data, year == latest_year & month == latest_month)
+
+# Load the necessary package
+library(jsonlite)
+
+# Convert recent_data to JSON and save it to a file
+write_json(recent_data, path = "recent_data.json", pretty = TRUE)
+ # Writes to cwd, need to write to github instead. 
+# -----------------------------------------------------------------------------------------------#
+# End of website tweaks 
+#------------------------------------------------------------------------------------------------#
+
 base_data <- base_data %>%
-  select(-yhat)
+  select(-prediction_prob)
 
 #------------------------------------------------------------------------------------------------#  
 #Look at top-10 idea to show that we have a good model
 #------------------------------------------------------------------------------------------------#  
 outcome <- base_data %>%
-  mutate(yhat = predict(coup_logit, newdata=base_data, type="response")) %>%
-  select(ccode, year, month, coup_attempt, yhat) %>%
-  filter(!is.na(yhat))
+  mutate(prediction_prob = predict(coup_logit, newdata=base_data, type="response")) %>%
+  select(ccode, year, month, coup_attempt, prediction_prob) %>%
+  filter(!is.na(prediction_prob))
 outcome <- outcome %>%
   group_by(year) %>%
-  mutate(mean=mean(yhat)) %>%
-  mutate(sd=sd(yhat)) %>%
-  mutate(z=(yhat-mean)/sd) %>%
+  mutate(mean=mean(prediction_prob)) %>%
+  mutate(sd=sd(prediction_prob)) %>%
+  mutate(z=(prediction_prob-mean)/sd) %>%
   filter(coup_attempt==1) %>%
   mutate(percentile=pnorm(z)*100)
 tot <- nrow(outcome)
 p90 <- outcome %>%
   filter(percentile>80)
 p90 <- nrow(p90)/tot #so 38% of coup attempts happened in states we had ranked in 90+ percentile
-
-
-
-
-
-
-  arrange(year, -yhat) %>%
+  arrange(year, -prediction_prob) %>%
   group_by(year) %>%
   mutate(rank=row_number()) %>%
   ungroup()
@@ -744,3 +772,4 @@ for (i in 1:k_folds) {
 print(results)
 rm(cutoff, folds, i, k_folds, oversample_factor, predicted_classes, predicted_probs, remove_perc)
 rm(coup_countries, non_coup_data, testing, training, balanced_data, model, conf_matrix, other_countries, model_data)
+
