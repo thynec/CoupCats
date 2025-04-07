@@ -223,7 +223,7 @@ formatted_table <- data_color(
   formatted_table,
   columns = "p.value",
   colors = col_numeric(
-    palette = c("red", "black"),
+    palette = c("blue", "black"),
     domain = c(0, 0.05)))
 formatted_table <- tab_header(
   formatted_table,
@@ -251,7 +251,7 @@ formatted_table <- data_color(
   formatted_table,
   columns = "p",
   colors = scales::col_numeric(
-    palette = c("red", "black"),
+    palette = c("blue", "black"),
     domain = c(0, 0.05)))
 formatted_table <- tab_header(
   formatted_table,
@@ -324,12 +324,12 @@ formatted_table <- tab_style(
   formatted_table,
   style = list(cell_text(weight = "bold")),
   locations = cells_column_labels())
-# Highlight significant p-values in red
+# Highlight significant p-values in blue
 formatted_table <- data_color(
   formatted_table,
   columns = "p.value",
   colors = col_numeric(
-    palette = c("red", "black"),
+    palette = c("blue", "black"),
     domain = c(0, 0.05)))
 # Title and Subtitle
 formatted_table <- tab_header(
@@ -359,12 +359,12 @@ formatted_table <- tab_style(
   formatted_table,
   style = list(cell_text(weight = "bold")),
   locations = cells_column_labels())
-# Highlight significant p-values in red (p < 0.05)
+# Highlight significant p-values in blue (p < 0.05)
 formatted_table <- data_color(
   formatted_table,
   columns = "p",
   colors = scales::col_numeric(
-    palette = c("red", "black"),
+    palette = c("blue", "black"),
     domain = c(0, 0.05)))
 # Add title and subtitle
 formatted_table <- tab_header(
@@ -447,7 +447,7 @@ plot_data <- data.frame(
 #Make plot
 ggplot(plot_data, aes(x = observation, y = cooks_distance)) +
   geom_point() +  # Scatter plot of Cook's distances
-  geom_hline(yintercept = 4 / length(logit_CooksD), linetype = "dashed", color = "red") +  # Threshold line
+  geom_hline(yintercept = 4 / length(logit_CooksD), linetype = "dashed", color = "blue") +  # Threshold line
   labs(x = "Observations", y = "Cook's Distance", title = "Cook's Distance Plot for Logit Model") +
   theme_minimal()  # Optional: minimal theme for clean look
 
@@ -485,7 +485,7 @@ plot_data <- data.frame(
 #Make plot
 ggplot(plot_data, aes(x = observation, y = cooks_distance)) +
   geom_point() +  # Scatter plot of Cook's distances
-  geom_hline(yintercept = 4 / length(probit_CooksD), linetype = "dashed", color = "red") +  # Threshold line
+  geom_hline(yintercept = 4 / length(probit_CooksD), linetype = "dashed", color = "blue") +  # Threshold line
   labs(x = "Observations", y = "Cook's Distance", title = "Cook's Distance Plot for Probit Model") +
   theme_minimal()  # Optional: minimal theme for clean look
 
@@ -610,7 +610,7 @@ ggplot(results, aes(x = specificity, y = sensitivity)) +
        x = "Specificity",
        y = "Sensitivity") +
   theme_minimal() +
-  scale_color_gradient(low = "blue", high = "red") +
+  scale_color_gradient(low = "blue", high = "blue") +
   theme(legend.position = "bottom")
 
 rm(balanced_data, conf_matrix, df, no_coup_cases, non_coup_data, other_countries, training, testing, training_logit)
