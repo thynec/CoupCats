@@ -4,17 +4,6 @@
 
 #Building domestic political variables
 
-#Priority vars:
-#elections - COMPLTED
-#regime type - COMPLETED
-#military regime dummy (from reign)  - COMPLETED
-
-#Secondary vars:
-#Refined elections (updated w/ reign protocol) - NEEDED
-#corruption  - NEEDED
-#Incumbent takeovers (see Baturo/Tolstrup; J. Peace Research) - NEEDED
-#% women in legislature  - NEEDED
-
 #1. clear all
 rm(list = ls())
 #2. set working directory
@@ -85,7 +74,6 @@ vdem <- vdem %>%
          int_shutdown = v2smgovshut, # Between 2000 to 2023... can likely code this to be 0 for previous years. 
          int_censor = v2smgovfilprc, # Between 2000 to 2023.
          forgov_misinfo = v2smfordom) %>% # Between 2000 to 2023.
-  mutate(year=year+1) %>% #just lagged
   filter(year >= 1949)
 vdem <- vdem %>% # Merging in ccodes. 
   left_join(ccodes, by = c("year", "country")) %>%
@@ -130,6 +118,14 @@ table(regime_type$regime_type, regime_type$liberal_democracy)
 regime_type <- regime_type %>%
   select(-regime_type)
 
+#Expand to create year=2025; assume it's the same as 2024
+regime_type <- regime_type %>%
+  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  expandRows("expand", drop=FALSE) %>%
+  arrange(ccode, year) %>%
+  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
+  select(-expand)
+
 #Merging into data set. 
 base_data <- base_data %>% 
   left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
@@ -138,7 +134,7 @@ rm(regime_type)
 #investigate missing data
 check <- base_data %>%
   filter(is.na(closed_autocracy))
-table(check$country) #looks good; up to most recent month
+table(check$country) #looks good; most recent data through 2025
 rm(check)
 
 #------------------------------------------------------------------------------------------------#
@@ -156,6 +152,16 @@ vdem_regime2 <- vdem %>%
   set_variable_labels(
     polyarchy="v2x_polyarchy, vdem, t-1",
     polyarchy2="v2x_polyarchy^2, vdem, t-1")
+
+#Expand to create year=2025; assume it's the same as 2024
+vdem_regime2 <- vdem_regime2 %>%
+  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  expandRows("expand", drop=FALSE) %>%
+  arrange(ccode, year) %>%
+  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
+  select(-expand)
+
+#merge to baseline
 base_data <- base_data %>% 
   left_join(vdem_regime2, by = c("ccode", "year")) 
 rm(vdem, vdem_regime2)
@@ -182,7 +188,7 @@ milit <- milit %>%
 check <- milit %>%
   filter(is.na(ccode)) %>%
   select(-year) %>%
-  distinct
+  distinct()
 table(check$country) #we're good
 rm(check)
 milit <- milit %>%
@@ -351,6 +357,7 @@ base_data <- base_data %>%
 
 #------------------------------------------------------------------------------------------------#
 # Gender data (V-Dem) 
+#------------------------------------------------------------------------------------------------#
 
 gender_data <- vdem %>%
   subset(select = c(country_name, # Country. 
@@ -373,6 +380,14 @@ gender_data <- gender_data %>%
   left_join(ccodes, by = c("year", "country")) %>%
   filter(!is.na(ccode)) # Non-state actors. 
 
+#Expand to create year=2025; assume it's the same as 2024
+gender_data <- gender_data %>%
+  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  expandRows("expand", drop=FALSE) %>%
+  arrange(ccode, year) %>%
+  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
+  select(-expand)
+
 # Merging data. 
 gender_data <- gender_data %>% 
   rename(mcountry = country)
@@ -386,6 +401,8 @@ rm(check) # All good.
 base_data <- base_data %>%
   subset(select = -c(mcountry))
 rm(gender_data) 
+
+#checked missing behind the scenes; we're good
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
