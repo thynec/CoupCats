@@ -18,6 +18,7 @@ library(pltesim) # To set up btscs; see https://www.rdocumentation.org/packages/
 library(broom)
 library(pltesim) # add pce years for temporal ind; implementing btscs
 library(data.table) # helps bring in zipped csv
+library(splitstackshape) # allows to expand rows using 'expandRows'
 
 # Data Visualization
 library(ggplot2) # Primary package for data visualization
