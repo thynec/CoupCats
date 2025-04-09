@@ -20,6 +20,7 @@ install.packages("pltesim") #add pce years for temporal ind; implementing btscs
 install.packages("R.utils") # helps bring in zipped .csv
 install.packages("data.table") # helps bring in zipped .csv
 install.packages("splitstackshape") # allows to expand rows using 'expandRows'
+install.packages("caret")  # Training and evaluating machine learning models
 
 # Data Visualization
 install.packages("ggplot2") # Primary package for data visualization
