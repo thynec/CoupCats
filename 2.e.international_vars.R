@@ -721,3 +721,61 @@ fdi_data <- fdi_data %>%
 base_data <- base_data %>%
   left_join(fdi_data, by = c("ccode", "year"))
 rm(fdi_data)
+
+# ------------------ Interstate War (UCDP) ----------------#
+#getting data from UCDP
+#bring in data
+url <- "https://ucdp.uu.se/downloads/ucdpprio/ucdp-prio-acd-241-xlsx.zip"
+download.file(url, "data.zip")
+unzip("data.zip", exdir="data")
+unlink("data.zip")
+iw_data <- read_excel("data/UcdpPrioConflict_v24_1.xlsx")
+unlink("data", recursive=TRUE)
+rm(url) 
+
+#Cleaning up (only select interstate war)
+iw_data <- iw_data %>%
+  filter(type_of_conflict == 2) %>%
+  dplyr::rename(country = location) %>%
+  separate_rows(country, gwno_loc, sep = ", ") %>%
+  mutate(ep_end_date = coalesce(as.Date(ep_end_date), Sys.Date())) %>%
+  separate(start_date, into = c("start_year", "start_month", "start_day"), sep = "-", convert = TRUE) %>%
+  separate(ep_end_date, into = c("end_year", "end_month", "end_day"), sep = "-", convert = TRUE) %>%
+  dplyr::select(country, start_year, start_month, end_year, end_month) %>%
+  
+  # Create start and end dates as proper Date objects
+  mutate(start_date = make_date(start_year, start_month, 1),
+         end_date = make_date(end_year, end_month, 1)) %>%
+  # Generate a sequence of months between start_date and end_date for each country
+  rowwise() %>%
+  do({
+    data.frame(
+      country = rep(.$country, as.integer(interval(.$start_date, .$end_date) / months(1)) + 1),
+      month_year = seq(.$start_date, .$end_date, by = "month")
+    )
+  }) %>%
+  ungroup() %>%
+  # Add the column for interstate war value 
+  mutate(iw = 1) %>%
+  # Extract the year and month
+  mutate(year = year(month_year), 
+         month = month(month_year)) %>%
+  # Select the relevant columns
+  dplyr::select(country, year, month, iw)
+
+#merge with ccodes
+iw_data <- iw_data %>%
+  left_join(ccodes, by = c("country", "year")) 
+
+#relevant variables
+iw_data <- iw_data %>%
+  dplyr::select(country, year, month, iw, ccode)
+
+#merging with base data
+base_data <- base_data %>%
+  left_join(iw_data, by = c("year","month","ccode")) %>%
+  mutate(iw = ifelse(is.na(iw), 0, iw)) %>%
+  dplyr::select(-country.y) %>%  # Drop duplicate
+  dplyr::rename(country = country.x) #renaming
+rm(iw_data)
+
