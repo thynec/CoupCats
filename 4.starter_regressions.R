@@ -10,8 +10,8 @@ rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
 #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
-setwd("C:/Users/jsequ/OneDrive - University of Kentucky/[01] University/[03] Junior Year/[02] Spring Semester 25/TEK") #Jose
+setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/jsequ/OneDrive - University of Kentucky/[01] University/[03] Junior Year/[02] Spring Semester 25/TEK") #Jose
 
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
@@ -73,18 +73,35 @@ write.csv(base_data, "base_data.csv", row.names = FALSE)
 
 #logit with coup attempt as dv
 #Clay added robust SEs on 03/19/25; use this format for other regressions (feglm<-glm at beginning; 'cluster = ~ccode' at end))
-coup_logit <- feglm(coup_attempt ~  milreg + closed_autocracy  + liberal_democracy + #2.a. domestic political
+coup_logit <- feglm(coup_attempt ~  
+                      milreg + polyarchy + polyarchy2 + milit_dimension + wom_polpart +  #2.a. domestic political
                       lgdppcl + ch_gdppcl + ltrade + #2.b. domestic economic
                       cw + mobilization +  #2.c. political instability
-                      milit_dimension + solqual + milper + milex #2.d. military vars
-                      visit + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                      milit_dimension + solqual + milper + milex + #2.d. military vars
+                    visit + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                       pce + pce2 + pce3, #autocorrelation vars, 
                     data = base_data, family = 'binomial', cluster = ~ccode)
 summary(coup_logit)
 
-#---------------------------------------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------------#
+#check years and months that are in the model to make sure we're updated through 03/2025
+#---------------------------------------------------------------------------------------------------------------------#
+
+base_data$yhat <- predict(coup_logit, newdata=base_data, type="response")
+years <- base_data %>%
+  filter(!is.na(yhat))
+summary(years$year) #these are the years that were included in the last regression; we want this to be 2025
+months <-years %>%
+  filter(year==2025)
+summary(months$month) #this is the last month in the regression, assuming we get it updated to 2025; we want this to be 3 or 4 (March or April)
+rm(years, months)
+base_data <- base_data %>%
+  select(-yhat)
+
+#---------------------------------------------------------------------------------------------------------------------#
 #log likelihood for addding variables 
 #add regression coup_logit2 here
+#---------------------------------------------------------------------------------------------------------------------#
 
 # 1. Get log-likelihoods for both models
 logLik_coup_logit <- logLik(coup_logit)
@@ -143,7 +160,7 @@ library(jsonlite)
 
 # Convert recent_data to JSON and save it to a file
 write_json(recent_data, path = "recent_data.json", pretty = TRUE)
- # Writes to cwd, need to write to github instead. 
+# Writes to cwd, need to write to github instead. 
 # -----------------------------------------------------------------------------------------------#
 # End of website tweaks 
 #------------------------------------------------------------------------------------------------#
@@ -169,7 +186,7 @@ tot <- nrow(outcome)
 p90 <- outcome %>%
   filter(percentile>80)
 p90 <- nrow(p90)/tot #so 38% of coup attempts happened in states we had ranked in 90+ percentile
-  arrange(year, -prediction_prob) %>%
+arrange(year, -prediction_prob) %>%
   group_by(year) %>%
   mutate(rank=row_number()) %>%
   ungroup()
@@ -767,4 +784,3 @@ for (i in 1:k_folds) {
 print(results)
 rm(cutoff, folds, i, k_folds, oversample_factor, predicted_classes, predicted_probs, remove_perc)
 rm(coup_countries, non_coup_data, testing, training, balanced_data, model, conf_matrix, other_countries, model_data)
-
