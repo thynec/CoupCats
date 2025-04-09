@@ -178,33 +178,25 @@ rm(df)
 #------------------------------------------------------------------------------------------------#      
 #building CPI
 #------------------------------------------------------------------------------------------------# 
+# Bringing in World Bank CPI data. 
+WB_CPI <- WDI(country = "all",
+                  indicator = "FP.CPI.TOTL",
+                  start = 1960,
+                  end = 2025,
+                  extra = TRUE)
 
-#Bringing in CPI data from world bank, using 2010 as base year
-url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
-destfile <- "FP_CPI.xls"
-curl::curl_download(url, destfile)
-FP_CPI <- read_excel(destfile)
+# Cleaning up data. 
+WB_CPI <- WB_CPI %>%
+  select(country, year, FP.CPI.TOTL) %>%
+  rename(CPI = FP.CPI.TOTL) %>% 
+  mutate(year=year+1) %>% # Lag CPI
+  left_join(ccodes, by = c("year", "country")) %>% # Merging in ccodes.
+  select(-country)
 
-#Cleaning up dataset
-colnames(FP_CPI) <- FP_CPI[3, ]
-FP_CPI <- FP_CPI[-c(1:3), ]
-FP_CPI <- FP_CPI %>% #rearranging data to correct format
-  pivot_longer(cols = `1960`:`2023`,  
-               names_to = "Year",     
-               values_to = "CPI")   
-FP_CPI$Year <- as.numeric(FP_CPI$Year) #changing Year to numeric
-FP_CPI <- FP_CPI %>% 
-  select(-`Indicator Name`, -`Indicator Code`, -`Country Code`) %>% #deleting unnecessary columns
-  mutate(Year=Year+1) %>% #Lag CPI
-  rename(year = Year) %>%
-  rename(country = `Country Name`) %>% 
-  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
-  filter(!is.na(ccode))
-FP_CPI <- FP_CPI %>% 
-  select(-`country`)
+# Merging into base data. 
 base_data <- base_data %>%
-  left_join(FP_CPI, by = c("ccode", "year"))
-
+  left_join(WB_CPI, by = c("ccode", "year"))
+rm(WB_CPI)
 
 #Bringing in IMF CPI - All measured using different base years
 IMF_cpi <- read_csv("https://www.uky.edu/~clthyn2/IMF_cpi.csv")
