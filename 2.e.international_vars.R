@@ -514,6 +514,48 @@ base_data <- base_data %>%
   left_join(regional_contagion, by = c("year", "month", "ccode")) %>%
   mutate(neighboring_coup = replace_na(neighboring_coup, 0))
 
+#------------------------------------------------------------------------------------------------#
+# International Governmental Organizations(IGO)
+#------------------------------------------------------------------------------------------------#  
+
+#getting the data from COW
+url <-  "https://correlatesofwar.org/wp-content/uploads/state_year_formatv3.zip"
+download.file (url, "igo.zip")#Downloads the dataset and saves it as data.zip in working directory.
+unzip ("igo.zip", exdir = "igo") #Extracts the contents of the ZIP file into a folder named data.
+igo <- read_csv("igo/state_year_formatv3.csv")
+rm(url)
+unlink("igo.zip", recursive = TRUE )
+unlink("igo", recursive = TRUE )
+
+names(igo)
+
+# creating dummy variable for states who are full members of any int organization that year
+igo <- igo %>%
+  mutate(member = if_any(AAAID:Wassen, ~ . == 1)) %>%  #checks if any column from AAAID to Wassen is equal to 1 for that row, if yes, it calls it TRUE
+  relocate(member, .after = state)
+igo <- igo %>%
+  mutate(member = as.integer(if_any(AAAID:Wassen, ~ . == 1))) #converts TRUE/FALSE to 1/0.
+
+# creating dummy variable for states who are associate members of any int organization that year
+igo <- igo %>%
+  mutate(associate = if_any(AAAID:Wassen, ~ . == 2)) %>% 
+  relocate(associate, .after = member) %>% 
+  mutate(associate = as.integer(if_any(AAAID:Wassen, ~ . == 1)))
+
+# creating dummy variable for states who are observers of any int organization that year
+igo <- igo %>%
+  mutate(observer = if_any(AAAID:Wassen, ~ . == 3)) %>% 
+  relocate(observer, .after = associate) %>% 
+  mutate(observer = as.integer(if_any(AAAID:Wassen, ~ . == 1)))
+
+igo <- igo %>%
+  dplyr::select(ccode, year, member, associate, observer) #keeping only what we care about
+
+# merging to base data
+base_data <- base_data %>% 
+  left_join(igo, by = c("ccode", "year"))
+
+
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
