@@ -358,37 +358,32 @@ CPI <- CPI %>%
 #------------------------------------------------------------------------------------------------#      
 # VARIABLES PULLED FROM WORLD BANK: RESOURCE RENTS, DEBT, TOURISM, GINI
 #------------------------------------------------------------------------------------------------# 
-indicators <- list("DT.ODA.ODAT.GN.ZS", "NY.GDP.NGAS.RT.ZS", "NY.GDP.TOTL.RT.ZS", "DT.TDS.DECT.GN.ZS",
-                   "ST.INT.RCPT.CD", "ST.INT.XPND.CD", "SI.POV.GINI")
-main <- base_data %>%
-  select("ccode", "year", "month")
 
-for (i in indicators) {
-  wb.data <- wb_data(
-    indicator = i,
-    country = "all",  # Use "all" for all countries
-    start_date = 1950,
-    end_date = 2025)
-  
-  wb.data <- wb.data %>%
-    select(-unit, -obs_status, -footnote, -last_updated, -iso2c, -iso3c) %>%
-    rename("year"=date) %>%
-    left_join(ccodes, by = c("country", "year")) %>%
-    select(-"country") %>%
-    distinct()
-  
-  main <- main %>%
-    left_join(wb.data, by = c("ccode", "year"))
-}
-rm(wb.data)
+# Bringing in data. 
+world_bank <- WDI(country = "all",
+            indicator = c("DT.ODA.ODAT.GN.ZS", "NY.GDP.NGAS.RT.ZS", "NY.GDP.TOTL.RT.ZS",
+                          "DT.TDS.DECT.GN.ZS", "ST.INT.RCPT.CD", "ST.INT.XPND.CD", 
+                          "SI.POV.GINI"),
+            start = 1960,
+            end = 2025,
+            extra = TRUE)
 
-main <- main %>%
-  rename('oda'=DT.ODA.ODAT.GN.ZS, "ngas"=NY.GDP.NGAS.RT.ZS, "nr_rents"=NY.GDP.TOTL.RT.ZS, "debt"=DT.TDS.DECT.GN.ZS, 
-         "trsm_inflows"=ST.INT.RCPT.CD, "trsm_outflows"=ST.INT.XPND.CD, "gini"=SI.POV.GINI)
-# Merge the variables with base_data
+# Cleaning up data. 
+world_bank <- world_bank %>% 
+  select(country, year, DT.ODA.ODAT.GN.ZS, NY.GDP.NGAS.RT.ZS, NY.GDP.TOTL.RT.ZS, DT.TDS.DECT.GN.ZS, ST.INT.RCPT.CD, ST.INT.XPND.CD, SI.POV.GINI) %>%
+  rename(oda = DT.ODA.ODAT.GN.ZS, 
+         ngas = NY.GDP.NGAS.RT.ZS,
+         nr_rents = NY.GDP.TOTL.RT.ZS, 
+         debt = DT.TDS.DECT.GN.ZS, 
+         trsm_inflows = ST.INT.RCPT.CD, 
+         trsm_outflows = ST.INT.XPND.CD, 
+         gini = SI.POV.GINI) %>% 
+  left_join(ccodes, by = c("country", "year")) 
+
+# Merging into base data. 
 base_data <- base_data %>%
-  left_join(main, by = c("ccode", "year", "month"))
-rm(main)
+  left_join(world_bank, by = c("ccode", "year"))
+rm(world_bank)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
