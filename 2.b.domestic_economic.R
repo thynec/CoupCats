@@ -179,13 +179,11 @@ rm(df)
 #building CPI
 #------------------------------------------------------------------------------------------------# 
 
-
 #Bringing in CPI data from world bank, using 2010 as base year
 url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
 destfile <- "FP_CPI.xls"
 curl::curl_download(url, destfile)
 FP_CPI <- read_excel(destfile)
-View(FP_CPI)
 
 #Cleaning up dataset
 colnames(FP_CPI) <- FP_CPI[3, ]
@@ -239,10 +237,10 @@ IMF_cpi <- IMF_cpi %>%
   distinct(COUNTRY, .keep_all = TRUE)
 countries <- unique(IMF_cpi$COUNTRY)
 IMF_cpi <- expand.grid(
-    COUNTRY = countries,
-    Year = 1950:2025,
-    Month = 1:12
-  ) %>%
+  COUNTRY = countries,
+  Year = 1950:2025,
+  Month = 1:12
+) %>%
   mutate(
     Quarter = case_when(
       Month %in% 1:3 ~ 1,
@@ -251,7 +249,7 @@ IMF_cpi <- expand.grid(
       Month %in% 10:12 ~ 4
     )
   )
-  
+
 IMF_cpi <- IMF_cpi %>%
   arrange(COUNTRY, Year, Month) %>%
   rename(year = Year) %>%
@@ -346,7 +344,7 @@ IMF_cpi <- IMF_cpi %>%
 #Bringing in UNdata for CPI
 un <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/UNdata_Export_20250402_172632368.csv")
 
-         
+
 #Bringing in Thyne/Mitchell dataset
 url <- "http://www.uky.edu/~clthyn2/mitchell_thyne_CMPS2010.zip"
 download.file(url, "data.zip")
@@ -388,9 +386,9 @@ main <- main %>%
   rename('oda'=DT.ODA.ODAT.GN.ZS, "ngas"=NY.GDP.NGAS.RT.ZS, "nr_rents"=NY.GDP.TOTL.RT.ZS, "debt"=DT.TDS.DECT.GN.ZS, 
          "trsm_inflows"=ST.INT.RCPT.CD, "trsm_outflows"=ST.INT.XPND.CD, "gini"=SI.POV.GINI)
 # Merge the variables with base_data
-  base_data <- base_data %>%
-    left_join(main, by = c("ccode", "year", "month"))
-  rm(main)
+base_data <- base_data %>%
+  left_join(main, by = c("ccode", "year", "month"))
+rm(main)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
@@ -398,6 +396,5 @@ main <- main %>%
 write.csv(base_data, gzfile("2.b.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################  
-
 
 
