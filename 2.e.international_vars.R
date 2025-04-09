@@ -28,8 +28,8 @@ base_data <- base_data %>%
 #add pres visits; data collected by Kade in Mar/Apr 2025
 #------------------------------------------------------------------------------------------------#  
 pres <- read_delim("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/presidential_visits.txt", 
-                                  delim = "\t", escape_double = FALSE, 
-                                  col_names = FALSE, trim_ws = TRUE)
+                   delim = "\t", escape_double = FALSE, 
+                   col_names = FALSE, trim_ws = TRUE)
 #rename columns
 pres <- pres %>% 
   dplyr::rename(country = X1, city = X2, visit = X3, date = X4)
@@ -181,18 +181,18 @@ rm(base, df)
 #------------------------------------------------------------------------------------------------#  
 
 #Start with COW; monadic
-  url <- "https://correlatesofwar.org/wp-content/uploads/COW_Trade_4.0.zip"
-  download.file(url, "data.zip")
-  unzip("data.zip", exdir="data")
-  cow <- read_csv("data/COW_Trade_4.0/National_COW_4.0.csv")
-  unlink("data.zip")
-  unlink("data", recursive=TRUE)
-  rm(url)
+url <- "https://correlatesofwar.org/wp-content/uploads/COW_Trade_4.0.zip"
+download.file(url, "data.zip")
+unzip("data.zip", exdir="data")
+cow <- read_csv("data/COW_Trade_4.0/National_COW_4.0.csv")
+unlink("data.zip")
+unlink("data", recursive=TRUE)
+rm(url)
 check <- cow %>%
   select(ccode, year) %>%
   distinct() #no duplicates
 rm(check)
-  
+
 cow <- cow %>%
   mutate(year=year+1) %>% #just lagged
   mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
@@ -225,37 +225,37 @@ ch <- yearly %>%
 rm(ch)
 
 #add trade w/ US only from COW
-  url <- "https://correlatesofwar.org/wp-content/uploads/COW_Trade_4.0.zip"
-  download.file(url, "data.zip")
-  unzip("data.zip", exdir="data")
-  cow <- read_csv("data/COW_Trade_4.0/Dyadic_COW_4.0.csv")
-  unlink("data.zip")
-  unlink("data", recursive=TRUE)
-  rm(url)
+url <- "https://correlatesofwar.org/wp-content/uploads/COW_Trade_4.0.zip"
+download.file(url, "data.zip")
+unzip("data.zip", exdir="data")
+cow <- read_csv("data/COW_Trade_4.0/Dyadic_COW_4.0.csv")
+unlink("data.zip")
+unlink("data", recursive=TRUE)
+rm(url)
 #clean; note that these are not directed dyads
-  cow <- cow %>%
-    filter(ccode1==2) %>%
-    mutate(year=year+1) %>%
-    select(ccode=ccode2, flow1, flow2, year) %>%
-    mutate(flow1=ifelse(flow1<0, 0, flow1)) %>%
-    mutate(flow2=ifelse(flow2<0, 0, flow2)) %>%
-    mutate(dtrade=flow1+flow2) %>%
-    mutate(ldtrade=log(dtrade+1)) %>%
-    select(-flow1, -flow2)
-  ch <- cow %>%
-    select(ccode, year) %>%
-    distinct() #no duplicates, we're good
-  rm(ch)
-  yearly <- yearly %>%
-    left_join(cow, by=c("ccode", "year"))
-  rm(cow)
-    
+cow <- cow %>%
+  filter(ccode1==2) %>%
+  mutate(year=year+1) %>%
+  select(ccode=ccode2, flow1, flow2, year) %>%
+  mutate(flow1=ifelse(flow1<0, 0, flow1)) %>%
+  mutate(flow2=ifelse(flow2<0, 0, flow2)) %>%
+  mutate(dtrade=flow1+flow2) %>%
+  mutate(ldtrade=log(dtrade+1)) %>%
+  select(-flow1, -flow2)
+ch <- cow %>%
+  select(ccode, year) %>%
+  distinct() #no duplicates, we're good
+rm(ch)
+yearly <- yearly %>%
+  left_join(cow, by=c("ccode", "year"))
+rm(cow)
+
 #now do WDI, monadic
 
 #Add WDI; monadic
-  indicators <- c("NE.EXP.GNFS.CD", "NE.IMP.GNFS.CD")
-  wdi <- WDI(indicator = indicators, start = 1960, end = 2025, extra = TRUE)
-  rm(indicators)
+indicators <- c("NE.EXP.GNFS.CD", "NE.IMP.GNFS.CD")
+wdi <- WDI(indicator = indicators, start = 1960, end = 2025, extra = TRUE)
+rm(indicators)
 wdi <- wdi %>%
   select(country, year, NE.EXP.GNFS.CD, NE.IMP.GNFS.CD) %>%
   rename(exports = NE.EXP.GNFS.CD) %>%
@@ -408,7 +408,7 @@ rm(check)
 
 cor(yearly$ldtrade, yearly$usitc_ldtrade, use="complete.obs")
 cor(yearly$dtrade, yearly$usitc_dtrade, use="complete.obs")
-  #above very high correlations so getting at the same thing; okay to splice
+#above very high correlations so getting at the same thing; okay to splice
 
 #splice monadic
 mon <- yearly %>%
@@ -461,14 +461,6 @@ check <- base_data %>%
   distinct() #looks good
 rm(check, dy, mon, yearly)
 
-###############################################################################################
-#Checked through above and ready to produce .csv and upload to github
-#clean up if needed and export
-write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
-#Now push push the file that was just written to the working directory to github
-###############################################################################################  
-
-
 #------------------------------------------------------------------------------------------------#
 # Add regional contagion. 
 #------------------------------------------------------------------------------------------------#  
@@ -512,17 +504,40 @@ regional_contagion <- regional_contagion %>%
   mutate(neighboring_coup = case_when(coup_attempt == 1 ~ 1, TRUE ~ 0), relationship = "many-to-many") %>%
   select(ccode, month, year, neighbor, neighboring_coup)
 
+#create dummy=1 if any neighbor had a coup
+regional_contagion <- regional_contagion %>%
+  select(-neighbor) %>%
+  distinct()
+
 # Merging into base data. 
 base_data <- base_data %>%
-  left_join(regional_contagion, by = c("year", "month", "ccode"), relationship = "many-to-many") %>%
-  mutate(neighbor = replace_na(neighbor, 0)) %>%
+  left_join(regional_contagion, by = c("year", "month", "ccode")) %>%
   mutate(neighboring_coup = replace_na(neighboring_coup, 0))
+
+###############################################################################################
+#Checked through above and ready to produce .csv and upload to github
+#clean up if needed and export
+write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
+#Now push push the file that was just written to the working directory to github
+###############################################################################################  
+
+
+
+
+
+
+
+
+
+
+
+
 
 #------------------------------------------------------------------------------------------------#
 #add tourism
 #------------------------------------------------------------------------------------------------#  
 
-#Getting data - Tourism (From World Banks)
+#Getting data - Tourism (From World Bank)
 url <- "https://api.worldbank.org/v2/en/indicator/ST.INT.ARVL?downloadformat=excel"
 destfile <- "ST_INT.xls"
 curl::curl_download(url, destfile)
@@ -549,7 +564,7 @@ tourism <- tourism %>%
 base_data <- base_data %>%
   left_join(tourism, by=c("ccode", "year"))
 
-  
+
 #------------------------------------------------------------------------------------------------#
 #alliances
 #------------------------------------------------------------------------------------------------#  
@@ -583,7 +598,7 @@ atop <- atop %>%
     alliance_active = 1,
     defense_alliance_active = ifelse(defense == 1, 1, 0)
   )
-  
+
 atop <- atop %>% 
   dplyr::select(ccode, year, month, alliance_active, defense_alliance_active)
 
@@ -706,4 +721,3 @@ fdi_data <- fdi_data %>%
 base_data <- base_data %>%
   left_join(fdi_data, by = c("ccode", "year"))
 rm(fdi_data)
-
