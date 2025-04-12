@@ -104,25 +104,25 @@ base_data <- base_data %>%
 #---------------------------------------------------------------------------------------------------------------------#
 
 # 1. Get log-likelihoods for both models
-logLik_coup_logit <- logLik(coup_logit)
-logLik_coup_logit2 <- logLik(coup_logit2)
+#logLik_coup_logit <- logLik(coup_logit)
+#logLik_coup_logit2 <- logLik(coup_logit2)
 
 # 2. Compute the Likelihood Ratio statistic (2 * difference in log-likelihoods)
-LRT_statistic <- 2 * (logLik_coup_logit2 - logLik_coup_logit)
+#LRT_statistic <- 2 * (logLik_coup_logit2 - logLik_coup_logit)
 
 # 3. Degrees of freedom is the difference in the number of parameters (predictors)
-df <- length(coef(coup_logit2)) - length(coef(coup_logit))
+#df <- length(coef(coup_logit2)) - length(coef(coup_logit))
 
 # 4. Compute the p-value using the chi-squared distribution
-p_value <- 1 - pchisq(LRT_statistic, df)
+#p_value <- 1 - pchisq(LRT_statistic, df)
 
 # Print the result
-cat("LRT Statistic:", LRT_statistic, "\n")
-cat("Degrees of Freedom:", df, "\n")
-cat("P-value:", p_value, "\n")
+#cat("LRT Statistic:", LRT_statistic, "\n")
+#cat("Degrees of Freedom:", df, "\n")
+#cat("P-value:", p_value, "\n")
 
 #when polyarchy and polyarchy^2 excluded all 4 dummies are significantly adding to the model
-coup_logit <- coup_logit2
+#coup_logit <- coup_logit2
 #---------------------------------------------------------------------------------------------------------------------
 
 
@@ -186,7 +186,8 @@ tot <- nrow(outcome)
 p90 <- outcome %>%
   filter(percentile>80)
 p90 <- nrow(p90)/tot #so 38% of coup attempts happened in states we had ranked in 90+ percentile
-arrange(year, -prediction_prob) %>%
+outcome <- outcome %>%
+  arrange(year, -prediction_prob) %>%
   group_by(year) %>%
   mutate(rank=row_number()) %>%
   ungroup()
@@ -279,14 +280,15 @@ rm(formatted_table)
 
 # Filtering out rows with NAs. (wont need when we fill NAs)
 columns <- c(
-  "polyarchy", "polyarchy2", "milreg",                 # 2.a. domestic political
-  "lgdppcl", "ch_gdppcl",                               # 2.b. domestic economic
-  "cw", "mobilization",                                 # 2.c. political instability
-  "milit_dimension", "solqual",                         # 2.d. military vars
-  "visit", "cold", "ltrade", 
+  "milreg", "polyarchy", "polyarchy2", "milit_dimension", "wom_polpart",  # 2.a. domestic political
+  "lgdppcl", "ch_gdppcl",                                                  # 2.b. domestic economic
+  "cw", "mobilization",                                                   # 2.c. political instability
+  "solqual",                                                               # 2.d. military vars
+  "ltrade", "cold", 
   "e_asia_pacific", "LA_carrib", "MENA", "N_america", "S_asia", "Sub_africa",  # intl vars
   "pce", "pce2", "pce3"
 )
+
 
 base_data2 <- base_data[complete.cases(base_data[, ..columns]), ] 
 rm(columns)
