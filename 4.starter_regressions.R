@@ -77,7 +77,7 @@ coup_logit <- feglm(coup_attempt ~
                       milreg + polyarchy + polyarchy2 + milit_dimension + wom_polpart +  #2.a. domestic political
                       lgdppcl + ch_gdppcl + #2.b. domestic economic
                       cw + mobilization + #2.c. political instability
-                      milit_dimension + solqual +  #2.d. military vars
+                      milit_dimension +  #2.d. military vars
                       ltrade + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                       pce + pce2 + pce3, #autocorrelation vars, 
                     data = base_data, family = 'binomial', cluster = ~ccode)
