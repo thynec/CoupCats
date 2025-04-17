@@ -73,12 +73,25 @@ write.csv(base_data, "base_data.csv", row.names = FALSE)
 
 #logit with coup attempt as dv
 #Clay added robust SEs on 03/19/25; use this format for other regressions (feglm<-glm at beginning; 'cluster = ~ccode' at end))
+
+base_data <- base_data %>%
+  rename(Military_regime=milreg,
+         Democracy_level=polyarchy,
+         Democracy_squared=polyarchy2,
+         GDP_per_cap=lgdppcl,
+         Change_GDP_per_cap=ch_gdppcl,
+         Civil_wars=cw,
+         Protests=mobilization,
+         Military_influence=milit_dimension,
+         Women_political_participation=wom_polpart,
+         Trade=ltrade,
+         Cold_war=cold)
 coup_logit <- feglm(coup_attempt ~  
-                      milreg + polyarchy + polyarchy2 + milit_dimension + wom_polpart +  #2.a. domestic political
-                      lgdppcl + ch_gdppcl + #2.b. domestic economic
-                      cw + mobilization + #2.c. political instability
-                      milit_dimension +  #2.d. military vars
-                      ltrade + cold + ltrade + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                      Military_regime + Democracy_level + Democracy_squared + Women_political_participation +  #2.a. domestic political
+                      GDP_per_cap + Change_GDP_per_cap + #2.b. domestic economic
+                      Civil_wars + Protests + #2.c. political instability
+                      Military_influence +  #2.d. military vars
+                      Trade + Cold_war + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
                       pce + pce2 + pce3, #autocorrelation vars, 
                     data = base_data, family = 'binomial', cluster = ~ccode)
 summary(coup_logit)
