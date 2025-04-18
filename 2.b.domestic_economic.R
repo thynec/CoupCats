@@ -179,6 +179,7 @@ rm(df)
 #building CPI
 #------------------------------------------------------------------------------------------------# 
 
+
 #Bringing in CPI data from world bank, using 2010 as base year
 url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
 destfile <- "FP_CPI.xls"
@@ -194,7 +195,7 @@ FP_CPI <- FP_CPI %>% #rearranging data to correct format
                values_to = "CPI")   
 FP_CPI$Year <- as.numeric(FP_CPI$Year) #changing Year to numeric
 FP_CPI <- FP_CPI %>% 
-  select(-`Indicator Name`, -`Indicator Code`, -`Country Code`) %>% #deleting unnecessary columns
+  select(`Country Name`, `Year`, `CPI`) %>% #deleting unnecessary columns
   mutate(Year=Year+1) %>% #Lag CPI
   rename(year = Year) %>%
   rename(country = `Country Name`) %>% 
@@ -202,8 +203,16 @@ FP_CPI <- FP_CPI %>%
   filter(!is.na(ccode))
 FP_CPI <- FP_CPI %>% 
   select(-`country`)
-base_data <- base_data %>%
-  left_join(FP_CPI, by = c("ccode", "year"))
+FP_CPI$CPI <- as.numeric(as.character(FP_CPI$CPI))
+FP_CPI_monthly <- FP_CPI %>% #expanding to monthly data
+  uncount(weights = 12) %>%
+  group_by(ccode, year) %>%
+  mutate(month = 1:12) %>%
+  ungroup()
+FP_CPI_monthly <- FP_CPI_monthly %>% #Create Inflation
+  group_by(ccode) %>%
+  mutate(Inflation = (CPI - lag(CPI)) / lag(CPI) * 100) %>%
+  select(-`CPI`)
 
 
 #Bringing in IMF CPI - All measured using different base years
@@ -223,13 +232,9 @@ IMF_cpi <- IMF_cpi %>%
 IMF_cpi <- IMF_cpi %>% 
   select(-`INDEX_TYPE`, -`COICOP_1999`, -`TYPE_OF_TRANSFORMATION`, -`OVERLAP`, -`STATUS`, -`IFS_FLAG`, -`DOI`)
 
-#Separating data into different datasets
+#Separating data into yearly dataset
 IMF_cpi_years <- IMF_cpi %>% #Separating yearly data to begin correctly merging data
   select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, matches("^[0-9]{4}$"))  # Keeps only yearly columns
-IMF_cpi_quarters <- IMF_cpi %>% #Separating quarterly data to begin correctly merging data
-  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, matches("^[0-9]{4}-Q[1-4]$"))  # Keeps only quarterly columns
-IMF_cpi_months <- IMF_cpi %>% #Separating monthly data to begin correctly merging data
-  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, matches("^[0-9]{4}-M[0-9]{2}$")) #Keep only monthly columns
 
 #Cleaning the main dataset for IMF to merge in CPI data
 IMF_cpi <- IMF_cpi %>%
@@ -257,57 +262,6 @@ IMF_cpi <- IMF_cpi %>%
   left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
   filter(!is.na(ccode))
 
-#Begin Work on Monthly sub-dataset
-IMF_cpi_months <- IMF_cpi_months %>% #Cleaning monthly data
-  filter(FREQUENCY == "Monthly") %>%
-  pivot_longer(
-    cols = matches("^[0-9]{4}-M[0-9]{2}$"),  # Select only monthly columns (e.g., "1950-M01")
-    names_to = "Time",      # New column to store the original month-year labels
-    values_to = "CPI_Value" # Store the actual CPI values
-  ) %>%
-  mutate(
-    Year = as.numeric(substr(Time, 1, 4)),  # Extract year from "1950-M01"
-    Month = as.numeric(substr(Time, 7, 8)) # Extract month (e.g., "01" -> 1)
-  ) %>%
-  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, Year, Month, CPI_Value)
-IMF_cpi_months <- IMF_cpi_months %>%
-  rename(year = Year) %>%
-  rename(country = `COUNTRY`) %>%
-  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
-  filter(!is.na(ccode))
-IMF_cpi_months <- IMF_cpi_months %>% #rename variable as monthly cpi data
-  rename(cpi_monthly = CPI_Value)
-IMF_cpi_months <- IMF_cpi_months %>% 
-  select(-`FREQUENCY`, -`REFERENCE_PERIOD`, -`COMMON_REFERENCE_PERIOD`, -`country`)
-IMF_cpi <- IMF_cpi %>%  #merging monthly back into main data set
-  left_join(IMF_cpi_months, by = c("ccode", "year", "Month"))
-rm(IMF_cpi_months)
-
-#Begin Work on Quarterly sub-dataset
-IMF_cpi_quarters <- IMF_cpi_quarters %>% #Cleaning Quarterly data
-  filter(FREQUENCY == "Quarterly") %>%
-  pivot_longer(
-    cols = matches("^[0-9]{4}-Q[1-4]$"),  # Select only quarterly columns (e.g., "1950-Q1")
-    names_to = "Time",      # New column to store the original quarter-year labels
-    values_to = "CPI_Value" # Store the actual CPI values
-  ) %>%
-  mutate(
-    Year = as.numeric(substr(Time, 1, 4)),  # Extract year from "1950-Q1"
-    Quarter = as.numeric(substr(Time, 7, 7)) # Extract quarter (e.g., "1" -> 1)
-  ) %>%
-  select(FREQUENCY, REFERENCE_PERIOD, COMMON_REFERENCE_PERIOD, COUNTRY, Year, Quarter, CPI_Value)
-IMF_cpi_quarters <- IMF_cpi_quarters %>%
-  rename(year = Year) %>%
-  rename(country = `COUNTRY`) %>%
-  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
-  filter(!is.na(ccode))
-IMF_cpi_quarters <- IMF_cpi_quarters %>% #rename variable as quarterly cpi data
-  rename(cpi_quarterly = CPI_Value) 
-IMF_cpi_quarters <- IMF_cpi_quarters %>% 
-  select(-`FREQUENCY`, -`REFERENCE_PERIOD`, -`COMMON_REFERENCE_PERIOD`, -`country`)
-IMF_cpi <- IMF_cpi %>%  #merging quarterly back into main data set
-  left_join(IMF_cpi_quarters, by = c("ccode", "year", "Quarter"))
-rm(IMF_cpi_quarters)
 
 #Begin Work on Yearly sub-dataset
 IMF_cpi_years <- IMF_cpi_years %>% #Cleaning Yearly data
@@ -328,32 +282,76 @@ IMF_cpi_years <- IMF_cpi_years %>%
   filter(!is.na(ccode))
 IMF_cpi_years <- IMF_cpi_years %>% #rename variable as yearly cpi data
   rename(cpi_yearly = CPI_Value) 
+IMF_cpi_years <- IMF_cpi_years %>%
+  mutate(year=year+1) #Lag CPI
 IMF_cpi_years <- IMF_cpi_years %>% 
   select(-`FREQUENCY`, -`REFERENCE_PERIOD`, -`COMMON_REFERENCE_PERIOD`, -`country`)
 IMF_cpi <- IMF_cpi %>%  #merging yearly back into main data set
   left_join(IMF_cpi_years, by = c("ccode", "year"))
 rm(IMF_cpi_years)
 
+IMF_cpi <- IMF_cpi %>%
+  rename(CPI = cpi_yearly)
+IMF_cpi <- IMF_cpi %>%
+  select(-'country', -'Quarter')  
+IMF_cpi <- IMF_cpi %>%
+  rename(month = Month)
+IMF_cpi <- IMF_cpi %>% #Create Inflation
+  group_by(ccode) %>%
+  mutate(Inflation = (CPI - lag(CPI)) / lag(CPI) * 100) %>%
+  select(-`CPI`)
 
-#Interpolation and creating percent change
-IMF_cpi <- IMF_cpi %>%
-  mutate(CPI = cpi_monthly)
-IMF_cpi <- IMF_cpi %>%
-  group_by(ccode) 
+
 
 #Bringing in UNdata for CPI
 un <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/UNdata_Export_20250402_172632368.csv")
 
+#Cleaning data
+un <- un %>%
+  select(-'OID', -'Magnitude') %>%
+  rename(year = Year) %>%
+  rename(country = 'Country or Area') 
 
-#Bringing in Thyne/Mitchell dataset
-url <- "http://www.uky.edu/~clthyn2/mitchell_thyne_CMPS2010.zip"
-download.file(url, "data.zip")
-unzip("data.zip", exdir="data")
-unlink("data.zip")
-CPI <- read_dta("data/mitchell_thyne_CMPS2010/mitchell_thyne_cmps1.dta")
+un <- un %>% #Merging ccodes
+  mutate(country = tolower(country)) %>%
+  distinct()
+ccodes <- ccodes %>%
+  mutate(country = tolower(country)) %>%
+  distinct() 
+un <- un %>%
+  left_join(ccodes, by = c("country", "year")) %>%
+  filter(!is.na(ccode))
+un <- un %>%
+  filter(Description == "CPI % CHANGE") %>%
+  select(`year`, `Value`, `ccode`) %>%
+  rename(Inflation = Value) %>%
+  mutate(year=year+1) #Lag CPI
+
+#Expanding to monthly data
+un <- un %>%
+  uncount(12) %>%  # Expand each row into 12 rows (for each month)
+  group_by(ccode, year) %>%
+  mutate(month = 1:12,  # Assign month numbers 1 to 12 within each group
+         Inflation = ifelse(month == 1, Inflation, 0)) %>%  # Keep inflation for month 1, zero otherwise
+  ungroup()
+
+#Merging CPI datasets
+CPI <- IMF_cpi %>%
+  left_join(FP_CPI_monthly, by = c("ccode", "year", "month"), suffix = c("", "_fp")) %>%
+  mutate(Inflation = coalesce(Inflation, Inflation_fp)) %>%  # Fill in missing Inflation
+  select(-Inflation_fp)
 
 CPI <- CPI %>%
-  select(ccode1, ccode2, year, CPI_issue, CPI)
+  left_join(un, by = c("ccode", "year", "month"), suffix = c("", "_un")) %>%
+  mutate(Inflation = coalesce(Inflation, Inflation_un)) %>%  # Fill in any remaining missing Inflation
+  select(-Inflation_un)
+rm(FP_CPI)
+rm(FP_CPI_monthly)
+rm(IMF_cpi)
+rm(un)
+
+
+
 
 #------------------------------------------------------------------------------------------------#      
 # VARIABLES PULLED FROM WORLD BANK: RESOURCE RENTS, DEBT, TOURISM, GINI
