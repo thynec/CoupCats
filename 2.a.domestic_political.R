@@ -80,6 +80,22 @@ vdem <- vdem %>% # Merging in ccodes.
   filter(!is.na(ccode)) # Non-state actors. 
 
 #------------------------------------------------------------------------------------------------#
+# Leader age; regime age data; emailed from Powell to Thyne on 04/18/25
+#------------------------------------------------------------------------------------------------#
+
+tenure <- read_csv("https://github.com/thynec/CoupCats/raw/refs/heads/data/leader_tenure_csv.csv")
+tenure <- tenure %>%
+  mutate(drop = ifelse(ccode == lag(ccode) & year == lag(year) & month == lag(month), 1, 0)) %>%
+  filter(drop!=1) #basically just lagged so outgoing leaders is counted in months where there was a transition; see Powell's email for a better way
+tenure <- tenure %>%
+  select(ccode, month, year, Leader_duration=month_counter, birthyear) %>%
+  mutate(Leader_age=year-birthyear+1) %>%
+  select(-birthyear)
+base_data <- base_data %>%
+  left_join(tenure, by=c("ccode", "year", "month"))
+rm(tenure)
+
+#------------------------------------------------------------------------------------------------#
 #Regime type (v2x_regime); from Vdem
 #------------------------------------------------------------------------------------------------#  
 
@@ -403,6 +419,20 @@ base_data <- base_data %>%
 rm(gender_data) 
 
 #checked missing behind the scenes; we're good
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
