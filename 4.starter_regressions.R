@@ -87,8 +87,8 @@ base_data <- base_data %>%
          Trade=ltrade,
          Cold_war=cold)
 coup_logit <- feglm(coup_attempt ~  
-                      Military_regime + Democracy_level + Democracy_squared + Women_political_participation +  #2.a. domestic political
-                      GDP_per_cap + Change_GDP_per_cap + #2.b. domestic economic
+                      Military_regime + Democracy_level + Democracy_squared + Women_political_participation + Leader_duration +   #2.a. domestic political
+                      GDP_per_cap + Change_GDP_per_cap +  #2.b. domestic economic
                       Civil_wars + Protests + #2.c. political instability
                       Military_influence +  #2.d. military vars
                       Trade + Cold_war + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
