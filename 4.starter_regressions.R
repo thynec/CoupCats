@@ -108,6 +108,11 @@ months <-years %>%
   filter(year==2025)
 summary(months$month) #this is the last month in the regression, assuming we get it updated to 2025; we want this to be 3 or 4 (March or April)
 rm(years, months)
+missing <- base_data %>%
+  filter(year==2025 & month==4) %>%
+  relocate(yhat) %>%
+  filter(is.na(yhat))
+table(missing$country) #these are the countries that won't show up in our map
 base_data <- base_data %>%
   select(-yhat)
 
