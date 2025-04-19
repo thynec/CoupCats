@@ -178,42 +178,17 @@ rm(df)
 #------------------------------------------------------------------------------------------------#      
 #building CPI
 #------------------------------------------------------------------------------------------------# 
+# Bringing in World Bank CPI data. 
+WB_CPI <- WDI(country = "all",
+                  indicator = "FP.CPI.TOTL",
+                  start = 1960,
+                  end = 2025,
+                  extra = TRUE)
 
-
-#Bringing in CPI data from world bank, using 2010 as base year
-url <- "https://api.worldbank.org/v2/en/indicator/FP.CPI.TOTL?downloadformat=excel"
-destfile <- "FP_CPI.xls"
-curl::curl_download(url, destfile)
-FP_CPI <- read_excel(destfile)
-
-#Cleaning up dataset
-colnames(FP_CPI) <- FP_CPI[3, ]
-FP_CPI <- FP_CPI[-c(1:3), ]
-FP_CPI <- FP_CPI %>% #rearranging data to correct format
-  pivot_longer(cols = `1960`:`2023`,  
-               names_to = "Year",     
-               values_to = "CPI")   
-FP_CPI$Year <- as.numeric(FP_CPI$Year) #changing Year to numeric
-FP_CPI <- FP_CPI %>% 
-  select(`Country Name`, `Year`, `CPI`) %>% #deleting unnecessary columns
-  mutate(Year=Year+1) %>% #Lag CPI
-  rename(year = Year) %>%
-  rename(country = `Country Name`) %>% 
-  left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
-  filter(!is.na(ccode))
-FP_CPI <- FP_CPI %>% 
-  select(-`country`)
-FP_CPI$CPI <- as.numeric(as.character(FP_CPI$CPI))
-FP_CPI_monthly <- FP_CPI %>% #expanding to monthly data
-  uncount(weights = 12) %>%
-  group_by(ccode, year) %>%
-  mutate(month = 1:12) %>%
-  ungroup()
-FP_CPI_monthly <- FP_CPI_monthly %>% #Create Inflation
-  group_by(ccode) %>%
-  mutate(Inflation = (CPI - lag(CPI)) / lag(CPI) * 100) %>%
-  select(-`CPI`)
-
+# Merging into base data. 
+base_data <- base_data %>%
+  left_join(WB_CPI, by = c("ccode", "year"))
+rm(WB_CPI)
 
 #Bringing in IMF CPI - All measured using different base years
 IMF_cpi <- read_csv("https://www.uky.edu/~clthyn2/IMF_cpi.csv")
