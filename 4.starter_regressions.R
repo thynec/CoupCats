@@ -96,6 +96,18 @@ coup_logit <- feglm(coup_attempt ~
                     data = base_data, family = 'binomial', cluster = ~ccode)
 summary(coup_logit)
 
+coup_OLS <- lm(coup_attempt ~  
+                      Military_regime + Democracy_level + Democracy_squared + Women_political_participation + Leader_duration +   #2.a. domestic political
+                      GDP_per_cap + Change_GDP_per_cap +  #2.b. domestic economic
+                      Civil_wars + Protests + #2.c. political instability
+                      Military_influence +  #2.d. military vars
+                      Trade + Cold_war + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                      pce + pce2 + pce3, #autocorrelation vars, 
+                    data = base_data)
+
+ols_standard <- lm.beta(coup_OLS)
+
+summary(ols_standard)
 #---------------------------------------------------------------------------------------------------------------------#
 #check years and months that are in the model to make sure we're updated through 03/2025
 #---------------------------------------------------------------------------------------------------------------------#
