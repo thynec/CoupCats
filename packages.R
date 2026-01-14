@@ -13,10 +13,9 @@ install.packages("janitor") # Cleans column names and tidies data
 install.packages("Hmisc") # For labeling data. 
 install.packages("labelled") # For labeling data.
 install.packages("lubridate") # For working with dates
-install.packages("pltesim") #For setting up bctcs peace year
+devtools::install_github("christophergandrud/pltesim")
 install.packages('readxl')
 install.packages('broom')
-install.packages("pltesim") #add pce years for temporal ind; implementing btscs
 install.packages("R.utils") # helps bring in zipped .csv
 install.packages("data.table") # helps bring in zipped .csv
 install.packages("splitstackshape") # allows to expand rows using 'expandRows'
@@ -26,7 +25,7 @@ install.packages("caret")  # Training and evaluating machine learning models
 install.packages("ggplot2") # Primary package for data visualization
 install.packages("gganimate") # Creates animated plots (with ggplot2)
 install.packages("ggfortify") # Visualizes model outputs (PCA, clustering)
-install.packages("ggmosaic") # Creates mosaic plots
+install.packages("ggmosaic", repos = c('https://haleyjeppson.r-universe.dev', 'https://cloud.r-project.org'))
 install.packages("ggpubr") # Enhances ggplot2 with greater details
 install.packages("ggstance") # Horizontal geoms for ggplot2
 install.packages("plotly") # Create interactive plots
@@ -75,7 +74,7 @@ install.packages("rgl") # 3D visualization
 install.packages("WDI") # World Bank Worldwide Data Indicators 
 
 # Data Collection and Statistics
-install.packages("tigerstats") # Common statistical analysis methods
+devtools::install_github("homerhanumat/tigerstats")
 install.packages("vcd") # Visualize categorical data using association plots
 
 # Data analysis
@@ -85,3 +84,4 @@ install.packages('aod')
 # Interpolation
 install.packages("zoo")
 install.packages("dplyr")
+
