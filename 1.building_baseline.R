@@ -1,5 +1,3 @@
-hello world!
-
 # -------------------------- Baseline Data ------------------------------ #
 
 rm(list=ls()) 
@@ -94,4 +92,5 @@ base_data <- base_data %>%
     pce3="Months^3") %>%
   select(-sequence)
 #For above, peace years are set up ignoring success/failed; go back and re-created these if you end up wanting to analyze success/failed instead of all attempts
+
 
