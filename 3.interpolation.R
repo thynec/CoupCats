@@ -3,6 +3,8 @@
 # Load necessary libraries
 #library(dplyr)
 #library(zoo)
+#library(lubridate)
+#library(forecast)
 
 # Function to check for missing values
 check_missing_values <- function(df) {
@@ -23,38 +25,34 @@ check_missing_values <- function(df) {
   return(values)
 }
 
-# Function to perform forward/backward fill
-fill_missing_values <- function(df, values) {
-  change_counts <- list()
+# Function to perform backward fill for data before the first observation
+backward_fill_before_first_obs <- function(df, value_column,
+                                           country_col = "ccode",
+                                           year_col = "year",
+                                           month_col = "month") {
   
-  for (val in values) {
-    # Forward fill
-    na_before_ffill <- sum(is.na(df[[val]]))
-    df <- df %>%
-      group_by(ccode, year) %>%
-      mutate(!!val := zoo::na.locf(!!sym(val), na.rm = FALSE)) %>%
-      ungroup()
-    na_after_ffill <- sum(is.na(df[[val]]))
-    ffill_changes <- na_before_ffill - na_after_ffill
-    
-    # Backward fill
-    na_before_bfill <- na_after_ffill
-    df <- df %>%
-      group_by(ccode, year) %>%
-      mutate(!!val := zoo::na.locf(!!sym(val), na.rm = FALSE, fromLast = TRUE)) %>%
-      ungroup()
-    na_after_bfill <- sum(is.na(df[[val]]))
-    bfill_changes <- na_before_bfill - na_after_bfill
-    
-    change_counts[[val]] <- list(ffill = ffill_changes, bfill = bfill_changes)
-  }
+  na_before <- sum(is.na(df[[value_column]]))
   
-  # Print fill results
-  for (val in values) {
-    cat(sprintf("\nFor column '%s':", val))
-    cat(sprintf("\n  Forward fill (ffill) changed %d rows.", change_counts[[val]]$ffill))
-    cat(sprintf("\n  Backward fill (bfill) changed %d rows.", change_counts[[val]]$bfill))
-  }
+  df <- df %>%
+    group_by(!!sym(country_col)) %>%
+    arrange(!!sym(year_col), !!sym(month_col)) %>%
+    mutate(
+      first_obs = min(which(!is.na(!!sym(value_column)))),
+      !!sym(value_column) := ifelse(
+        row_number() < first_obs & is.na(!!sym(value_column)),
+        !!sym(value_column)[first_obs],
+        !!sym(value_column)
+      )
+    ) %>%
+    select(-first_obs) %>%
+    ungroup()
+  
+  na_after <- sum(is.na(df[[value_column]]))
+  
+  cat(sprintf(
+    "\nFor column '%s', backward fill before first observed value changed %d rows.\n",
+    value_column, na_before - na_after
+  ))
   
   return(df)
 }
@@ -100,6 +98,93 @@ interpolate_missing_values <- function(df, value_column,
     ) %>%
     select(-na_mask, -valid_neighbors, -interpolate_mask, -interpolated) %>%
     ungroup()
+  
+  return(df)
+}
+
+#Function to perform AR(p) model to forecast data past last observed value
+forecast_future_missing_values <- function(df, value_column, country_col = "ccode",
+                                year_col = "year", month_col = "month",
+                                forecast_end = Sys.Date(),
+                                new_column_suffix = "_forecasted",
+                                max_order = 12) {
+  
+  new_col <- paste0(value_column, new_column_suffix)
+  df[[new_col]] <- df[[value_column]] 
+  
+  df <- df %>%
+    mutate(date = make_date(!!sym(year_col), !!sym(month_col), 1)) %>%
+    arrange(!!sym(country_col), date)
+  
+  df <- df %>%
+    group_by(!!sym(country_col)) %>%
+    group_modify(~ {
+      series <- .x[[value_column]]
+      dates <- .x$date
+      last_date <- max(dates)
+      
+      forecast_months <- interval(last_date, forecast_end) %/% months(1)
+      
+      if (forecast_months > 0 & sum(!is.na(series)) > 1) {
+        # Fit AR(p) model automatically
+        fit <- tryCatch({
+          auto.arima(series,
+                     d = 0,             
+                     max.p = max_order,
+                     max.q = 0,         
+                     seasonal = FALSE,  
+                     stepwise = TRUE,   
+                     approximation = FALSE)
+        }, error = function(e) NULL)
+        
+        if (!is.null(fit)) {
+          fc <- forecast(fit, h = forecast_months)
+          new_dates <- seq(last_date %m+% months(1), by = "month", length.out = forecast_months)
+          forecast_df <- tibble(
+            !!country_col := unique(.x[[country_col]]),
+            !!year_col := year(new_dates),
+            !!month_col := month(new_dates),
+            date = new_dates,
+            !!new_col := as.numeric(fc$mean)
+          )
+          
+          .x <- bind_rows(.x, forecast_df)
+        }
+      }
+      return(.x)
+    }) %>%
+    ungroup() %>%
+    select(-date)
+  
+  return(df)
+}
+
+#Function to perform forward fill for missing values after last observed value for binary data
+forward_fill_binary_missing_values <- function(df, value_column, country_col = "ccode",
+                                year_col = "year", month_col = "month",
+                                new_column_suffix = "_ffill") {
+  
+  new_col <- paste0(value_column, new_column_suffix)
+  df[[new_col]] <- df[[value_column]]  
+  
+  df <- df %>%
+    mutate(date = make_date(!!sym(year_col), !!sym(month_col), 1)) %>%
+    arrange(!!sym(country_col), date)
+  
+  df <- df %>%
+    group_by(!!sym(country_col)) %>%
+    group_modify(~ {
+
+      series <- .x[[value_column]]
+      
+      if (sum(!is.na(series)) > 0) {
+        series_ffill <- zoo::na.locf(series, na.rm = FALSE, fromLast = FALSE)
+        .x[[new_col]] <- series_ffill
+      }
+      return(.x)
+    }) %>%
+    ungroup() %>%
+    select(-date)
   
   return(df)
 }
