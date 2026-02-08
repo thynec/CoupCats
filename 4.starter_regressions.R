@@ -214,7 +214,7 @@ outcome <- outcome %>%
   mutate(percentile=pnorm(z)*100)
 tot <- nrow(outcome)
 p90 <- outcome %>%
-  filter(percentile>80)
+  filter(percentile>90)
 p90 <- nrow(p90)/tot #so 38% of coup attempts happened in states we had ranked in 90+ percentile
 outcome <- outcome %>%
   arrange(year, -prediction_prob) %>%
