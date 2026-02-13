@@ -61,7 +61,51 @@ replace_ccode_country <- read_excel(destfile)
 merged_data <- left_join(replace_ccode_country, pivot_pop,
                          by = c("country" = "Country Name"))
 
+#coups vs temp
+library(readr)
+temp <- read_csv("Downloads/GDL-Yearly-Average-Surface-Temperature-(ºC)-data.csv")
 
+temp_long <- temp %>%
+  pivot_longer(
+    cols = -c(Country,Continent,ISO_Code,Level,GDLCODE,Region),
+    names_to = "year",
+    values_to = "temperature"
+  )
+
+rm(temp)
+
+temp_long <- temp_long %>%
+  select(Country,year,temperature)
+
+temp_long$year <- as.numeric(temp_long$year)
+
+library(readxl)
+url <- "http://www.uky.edu/~clthyn2/replace_ccode_country.xls"
+destfile <- "replace_ccode_country.xls"
+curl::curl_download(url, destfile)
+replace_ccode_country <- read_excel(destfile)
+rm(destfile,url)
+
+mtemp <- temp_long %>%
+  left_join(replace_ccode_country, by=c("Country"="country","year"="year")) %>%
+  relocate(ccode) %>%
+  drop_na() 
+
+rm(replace_ccode_country,temp_long)
+
+mtemp <- mtemp %>%
+  select(ccode,year,temperature)
+
+mtemp <- mtemp %>%
+  group_by(ccode, year) %>%
+  summarise(temperature = mean(temperature, na.rm = TRUE)) %>%
+  ungroup()
+
+merged_base <- base %>%
+  left_join(mtemp, by=c("ccode" = "ccode", "year" = "year")) %>%
+  drop_na()
+
+rm(base,coups,mtemp)
 
 
 
