@@ -1,0 +1,37 @@
+#coups = population + income/cap + some weather thing
+
+rm(list=ls())
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
+
+install.packages(peacesciencer)
+library(peacesciencer)
+
+#build baseline dataset; ccode-year
+base <- create_stateyears(subset_years = 1950:2025, system = "cow")
+
+##bring in coups
+url <- "http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coups_final.xls"
+destfile <- "powell_thyne_coups_final.xls"
+curl::curl_download(url, destfile)
+coups <- read_excel(destfile)
+rm(destfile, url)
+#collapse coups so we have 1 ccode/year
+coups <- coups %>%
+  group_by(ccode, year) %>%
+  summarise(tot=sum(coup)) %>%
+  mutate(coup=1) %>%
+  set_variable_labels(coup="1 if 1+ coup attempt") %>%
+  select(-tot) %>%
+  ungroup()
+base <- base %>%
+  left_join(coups, by=c("ccode", "year")) 
+base <- base %>%
+  mutate(coup=ifelse(is.na(coup), 0, coup))
+
+
+url <- "http://www.uky.edu/~clthyn2/replace_ccode_country.xls"
+destfile <- "replace_ccode_country.xls"
+curl::curl_download(url, destfile)
+replace_ccode_country <- read_excel(destfile)
+
+
