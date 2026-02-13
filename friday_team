@@ -3,9 +3,6 @@
 rm(list=ls())
 source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
 
-install.packages(peacesciencer)
-library(peacesciencer)
-
 #build baseline dataset; ccode-year
 base <- create_stateyears(subset_years = 1950:2025, system = "cow")
 
@@ -33,5 +30,38 @@ url <- "http://www.uky.edu/~clthyn2/replace_ccode_country.xls"
 destfile <- "replace_ccode_country.xls"
 curl::curl_download(url, destfile)
 replace_ccode_country <- read_excel(destfile)
+
+
+
+#Coups vs population
+
+# load population data
+library(readxl)
+url <- "https://api.worldbank.org/v2/en/indicator/SP.POP.TOTL?downloadformat=excel"
+destfile <- "SP_POP.xls"
+curl::curl_download(url, destfile)
+population_total <- read_excel(destfile, skip = 2)
+
+# transpose population data
+pivot_pop <- population_total %>%
+  pivot_longer(
+    cols = -c(`Country Name`, `Country Code`, 'Indicator Name', 'Indicator Code'),
+    names_to = "year",
+    values_to = "population"
+  )
+rm(population_total)
+# load country code
+library(readxl)
+url <- "http://www.uky.edu/~clthyn2/replace_ccode_country.xls"
+destfile <- "replace_ccode_country.xls"
+curl::curl_download(url, destfile)
+replace_ccode_country <- read_excel(destfile)
+
+# Join them to get the correct ccode
+merged_data <- left_join(replace_ccode_country, pivot_pop,
+                         by = c("country" = "Country Name"))
+
+
+
 
 
