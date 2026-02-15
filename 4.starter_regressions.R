@@ -858,3 +858,61 @@ for (i in 1:k_folds) {
 print(results)
 rm(cutoff, folds, i, k_folds, oversample_factor, predicted_classes, predicted_probs, remove_perc)
 rm(coup_countries, non_coup_data, testing, training, balanced_data, model, conf_matrix, other_countries, model_data)
+
+#---------------------------------------------------------------------------------#
+                              #multicollinearity
+#---------------------------------------------------------------------------------#
+numeric_base_data <- base_data %>%
+  select(where(is.numeric))
+
+model_matrix <- model.matrix(coup_logit)[, -1]
+cor_matrix <- rcorr(as.matrix(model_matrix)) # use only variables in the model
+
+# function to format output into df with columns of var name, correlation, and p value
+format_matrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    var1 = rownames(cormat)[row(cormat)[ut]],
+    var2 = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+  )
+}
+
+cor_matrix <- format_matrix(cor_matrix$r, cor_matrix$P)
+
+# variables that have correlation 0.8 or higher with one another
+cor_matrix %>% 
+  filter(cor >= 0.8 | cor <= -0.8) 
+
+# VIF 
+
+# calculate vif values 
+vif_values <- vif(coup_logit)
+vif_values 
+
+# make sure they match
+mat_list <- colnames(model_matrix)
+vif_list <- names(vif_values)
+setequal(mat_list, vif_list)
+
+
+# turn vif_values into matrix 
+vif_values_df <- tibble(
+  variable = names(vif_values),
+  vif = as.numeric(vif_values)
+)
+
+# filter for variables with vif greater than 5
+vif_values_df <- vif_values_df %>%
+  filter(vif >= 5)
+
+# flag correlations where either var1 or var2 has high VIF
+cor_vif_match <- cor_matrix %>%
+  filter(abs(cor) >= 0.8) %>%
+  mutate(
+    var1_high_vif = var1 %in% vif_values_df$variable,
+    var2_high_vif = var2 %in% vif_values_df$variable
+  ) %>%
+  filter(var1_high_vif | var2_high_vif)
+
