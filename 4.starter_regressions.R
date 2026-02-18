@@ -551,47 +551,8 @@ OLS_coup <- lm(coup_attempt ~
 #Breusch-Pagan test, if significant, heteroscedasticity probable in MLE model, further testing (hetprobit)
 bptest(OLS_coup)
 
-##################------------------- Begin TESTING-----------------#################
-                          
-#Measuring Overall LogLikelihood Fit for Probit 
-logLik(coup_probit) #This is -2969.378 (df=18) 
-
-null_model <- glm(coup_attempt ~ 1, #R^2 McFadden = 0.212, this means our model fits well
-                  data = base_data,
-                  family = binomial(link="logit"))
- 
-1 - (as.numeric(logLik(coup_logit)) /
-       as.numeric(logLik(null_model))) #0.211924, *This is really good* will need to use base_data2
-#Model is statistically stable, Predictors meaningfully improve fit, Not being driven by outliers, Strong explanatory power for binary political data
-
-#AUC (Area under ROC Curve), for coups: 0.7 to 0.8 is strong, checks for discrimination ability 
-#This is a really good test for however I am having some trouble running it
-#What this run, P(model assigns higher probability to a random coup case than a random non-coup case)
-install.packages("pROC") 
-library(pROC)
-
-pred_probs <- predict(coup_probit, type = "response") 
-
-pred_class <- ifelse(pred_probs > 0.1, 1, 0)
-mean(pred_class == base_data$coup_attempt) #0.99658, need to use base_data2
-
-roc_obj <- roc(base_data$coup_attempt, pred_probs)
-auc(roc_obj) 
-
-#Brier Score: checks for proability accuacy and good for calibration
-mean((pred_probs - base_data$coup_attempt)^2) #got 0.003433091 
-mean((mean(base_data$coup_attempt) - base_data$coup_attempt)^2) #compared to null, I got 0.003402321
-                            #this is actually slightly worse than the null, while it improves 
-                            #loglik, it does not improve average squared probability error 
-
-
-
-#--------------------------LOGIT---------------------###############
-logLik_coup_logit <- logLik(coup_logit)  #I got, -2557.772 (df=22)
-logLik_coup_logit2 <- logLike(coup_logit2) #This will have the added variables, coup_logit1 is restricted to not all of tbe variables, we are wanting to see if it is better with more variables. 
-
-############------------ End for now...---------------------------###############
-
+#-----------------Brier and AUC for Logit--------------------#
+logLik_coup_logit <- logLik(coup_logit)  #I got, -2557.772 (df=22) 
                           
 # --------------------------- Model developing --------------------------- #
 
