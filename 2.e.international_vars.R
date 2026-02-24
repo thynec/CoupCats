@@ -50,10 +50,6 @@ pres <- pres %>%
   mutate(month=as.numeric(month))
 pres <- pres %>%
   left_join(ccodes, by=c("country", "year"))
-check <- pres %>%
-  filter(is.na(ccode)) 
-table(check$country) #need to fix several...
-rm(check)
 pres <- pres %>%
   mutate(ccode=ifelse(country=="China, People’s Republic of", 710, ccode)) %>%
   mutate(ccode=ifelse(country=="Republic of China", 710, ccode)) %>%
@@ -113,15 +109,9 @@ ccodes2 <- ccodes %>%
 df <- df %>%
   left_join(ccodes2, by=c("country"))
 rm(ccodes2)
-check <- df %>%
-  filter(is.na(ccode))
-table(check$country) #add Turkey=ccode=640
+#add Turkey=ccode=640
 df <- df %>%
   mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
-check <- df %>%
-  filter(is.na(ccode))
-table(check$country) #all good
-rm(check)
 df <- df %>%
   select(-country) %>%
   distinct()
@@ -145,10 +135,6 @@ df <- df %>%
   select(-wdi_region)
 base <- base_data %>%
   left_join(df, by=c("ccode"))
-check <- base %>%
-  filter(is.na(MENA))
-table(check$country) #got problems; WDI not recognizing old names; easy to fix manually
-rm(check)
 #fix missing
 base <- base %>%
   mutate(euro_cent_asia=ifelse(country=="Czech Republic", 1, euro_cent_asia)) %>%
@@ -161,16 +147,6 @@ base <- base %>%
   mutate(Sub_africa=ifelse(country=="Zanzibar", 1, Sub_africa)) %>%
   mutate(MENA=ifelse(country=="Yemen Arab Republic", 1, MENA)) %>%
   mutate(MENA=ifelse(country=="Yemen People's Republic", 1, MENA))
-check <- base %>%
-  filter(is.na(e_asia_pacific)) %>%
-  filter(is.na(MENA)) %>%
-  filter(is.na(euro_cent_asia)) %>%
-  filter(is.na(LA_carrib)) %>%
-  filter(is.na(N_america)) %>%
-  filter(is.na(S_asia)) %>%
-  filter(is.na(Sub_africa))
-table(check$country) #looks good
-rm(check)
 base <- base %>%
   mutate(across(everything(), ~ replace_na(.x, 0)))
 base_data <- base
@@ -188,15 +164,9 @@ cow <- read_csv("data/COW_Trade_4.0/National_COW_4.0.csv")
 unlink("data.zip")
 unlink("data", recursive=TRUE)
 rm(url)
-check <- cow %>%
-  select(ccode, year) %>%
-  distinct() #no duplicates
-rm(check)
 
 cow <- cow %>%
   mutate(year=year+1) %>% #just lagged
-  mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
-  mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
   mutate(trade=(imports+exports)) %>%
   mutate(ltrade=log(trade+1)) %>%
   select(ccode, statename, year, trade, ltrade)
@@ -207,16 +177,9 @@ yearly <- base_data %>%
   select(country, ccode, year) %>%
   distinct() %>%
   arrange(ccode, year)
-check <- yearly %>%
-  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0))
-summary(check) #good; no duplicates
-rm(check)
 yearly <- yearly %>%
   left_join(cow, by=c("ccode", "year"))
-check <- yearly %>%
-  filter(country!=statename)
-table(check$country) #looks good
-rm(check, cow)
+rm(cow)
 yearly <- yearly %>%
   select(-statename)
 ch <- yearly %>%
@@ -271,10 +234,6 @@ ch <- wdi %>%
 rm(ch)
 wdi <- wdi %>%
   left_join(ccodes, by=c("country", "year"))
-check <- wdi %>%
-  filter(is.na(ccode))
-table(check$country)
-rm(check)
 wdi <- wdi %>%
   mutate(ccode=ifelse(country=="Turkiye", 640, ccode)) %>%
   rename(wdi_country=country) %>%
@@ -287,17 +246,9 @@ ch <- wdi %>%
 rm(ch)
 yearly <- yearly %>%
   left_join(wdi, by=c("ccode", "year"))
-check <- yearly %>%
-  filter(is.na(ccode)) #good
-check <- yearly %>%
-  filter(country!=wdi_country) %>%
-  relocate(wdi_country) %>%
-  arrange(ccode, year) %>%
-  mutate(drop=ifelse(ccode==lag(ccode), 1, 0)) %>%
-  filter(is.na(drop)) #looks fine
 yearly <- yearly %>%
   select(-wdi_country)
-rm(check, wdi)
+rm(wdi)
 ch <- yearly %>%
   select(ccode, year) %>%
   distinct() #looks good
@@ -317,12 +268,7 @@ exports <- exports %>%
   rename(country=Country) %>% 
   mutate(year=as.numeric(year)) %>%
   mutate(exports=as.numeric(exports)) %>%
-  mutate(year=year+1) %>%
-  filter(!is.na(exports))
-check <- exports %>%
-  select(country, year) %>%
-  distinct() #good
-rm(check)
+  mutate(year=year+1) 
 exports <- exports %>%
   left_join(ccodes, by=c("country", "year")) %>%
   arrange(ccode, year, -exports) %>%
@@ -343,12 +289,7 @@ imports <- imports %>%
   rename(country=Country) %>% 
   mutate(year=as.numeric(year)) %>%
   mutate(imports=as.numeric(imports)) %>%
-  mutate(year=year+1) %>%
-  filter(!is.na(imports))
-check <- imports %>%
-  select(country, year) %>%
-  distinct() #good
-rm(check)
+  mutate(year=year+1) 
 imports <- imports %>%
   left_join(ccodes, by=c("country", "year")) %>%
   arrange(ccode, year, -imports) %>%
@@ -358,14 +299,6 @@ imports <- imports %>%
 
 usitc <- exports %>% 
   full_join(imports, by=c("ccode", "year"))
-check <- usitc %>%
-  select(ccode, year) %>%
-  distinct() #good
-rm(check)
-check <- usitc %>%
-  arrange(ccode, year) %>%
-  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
-rm(check)
 usitc <- usitc %>%
   mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
   mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
@@ -378,33 +311,14 @@ usitc <- usitc %>%
   mutate(ccode=ifelse(country=="São Tomé and Príncipe", 403, ccode)) %>%
   mutate(ccode=ifelse(country=="Czechia (Czech Republic)", 316, ccode)) %>%
   mutate(ccode=ifelse(country=="Eswatini (Swaziland)", 572, ccode))
-check <- usitc %>%
-  filter(is.na(ccode))
-table(check$country) #looks good
-rm(check)
 usitc <- usitc %>%
   filter(!is.na(ccode))
-check <- usitc %>%
-  arrange(ccode, year) %>%
-  mutate(prob=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
-rm(check)
-check <- usitc %>%
-  select(ccode, year) %>%
-  distinct() #looks good
-rm(check)
 usitc <- usitc %>%
   select(-country)
 
 yearly <- yearly %>%
   left_join(usitc, by=c("ccode", "year"))
 rm(usitc, exports, imports)
-
-check <- yearly %>%
-  select(ccode, year) %>%
-  distinct() #looks good
-check <- yearly %>%
-  mutate(prob=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
-rm(check)
 
 cor(yearly$ldtrade, yearly$usitc_ldtrade, use="complete.obs")
 cor(yearly$dtrade, yearly$usitc_dtrade, use="complete.obs")
@@ -426,10 +340,6 @@ mon <- yearly %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice))
 mon <- mon %>%
-  group_by(ccode) %>%
-  filter(any(!is.na(splice))) %>%
-  mutate(splice=na.approx(splice, year, rule=2, na.rm=TRUE)) %>%
-  ungroup() %>%
   select(ccode, year, ltrade=splice)
 
 #splice dyadic
@@ -456,10 +366,7 @@ yearly <- yearly %>%
   left_join(dy, by=c("ccode", "year"))
 base_data <- base_data %>%
   left_join(yearly, by=c("ccode", "year"))
-check <- base_data %>%
-  select(ccode, year, month) %>%
-  distinct() #looks good
-rm(check, dy, mon, yearly)
+rm(dy, mon, yearly)
 
 #------------------------------------------------------------------------------------------------#
 # Add regional contagion. 
@@ -820,4 +727,3 @@ base_data <- base_data %>%
   dplyr::select(-country.y) %>%  # Drop duplicate
   dplyr::rename(country = country.x) #renaming
 rm(iw_data)
-
