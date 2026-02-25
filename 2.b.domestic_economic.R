@@ -101,11 +101,6 @@ vdem_gdppc <- vdem %>%
          c_merge = country) 
 base_data <- base_data %>%
   left_join(vdem_gdppc, by = c("ccode", "year"))
-check <- base_data %>% 
-  subset(select = c(country, c_merge, year)) %>%
-  distinct() %>%
-  filter(country!=c_merge)
-rm(check) # All good. 
 base_data <- base_data %>%
   subset(select = -c(c_merge))
 rm(vdem_gdppc, vdem)
@@ -123,11 +118,6 @@ wdi_gdppc <- wdi_gdppc %>%
   rename(c_merge = country)
 base_data <- base_data %>%
   left_join(wdi_gdppc, by = c("ccode", "year")) 
-check <- base_data %>% 
-  subset(select = c(country, c_merge)) %>%
-  distinct() %>%
-  filter(country!=c_merge)
-rm(check) # All good. 
 base_data <- base_data %>%
   subset(select = -c(c_merge))
 rm(wdi_gdppc)
@@ -145,10 +135,6 @@ df <- df %>%
   mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
   mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
   mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) 
-check <- df %>%
-  filter(year>2020)
-cor(check$gdppc, check$wdi_gdppc, use="complete.obs") #looks good
-rm(check)
 hist(df$gdppc) #need to log
 df <- df %>%
   mutate(lgdppcl=log(gdppc))
@@ -161,11 +147,6 @@ df <- df %>%
   arrange(ccode, year) %>%
   mutate(ch_gdppcl=((gdppc-lag(gdppc))/lag(gdppc))) %>% #huge range but seems legit
   select(-gdppc)
-df <- df %>%
-  group_by(ccode) %>%
-  mutate(lgdppcl = if (sum(!is.na(lgdppcl)) >=2) na.approx(lgdppcl, year, rule=2) else lgdppcl) %>%
-  mutate(ch_gdppcl = if (sum(!is.na(ch_gdppcl)) >=2) na.approx(ch_gdppcl, year, rule=2) else ch_gdppcl) %>%
-  ungroup()
 #merge to base
 base_data <- base_data %>%
   select(-vdem_gdppc, -wdi_gdppc) %>%
@@ -354,11 +335,6 @@ un <- un %>%
   mutate(country=ifelse(country=="azerbaijan, rep. of", "azerbaijan", country)) %>%
   mutate(country=ifelse(country=="bahrain, kingdom of", "bahrain", country)) %>%
   left_join(ccodes, by = c("country", "year"))
-check <- un %>%
-  filter(is.na(ccode)) %>%
-  select(country) %>%
-  distinct()
-table(check$country) #looks good
 un <- un %>%
   filter(!is.na(ccode))
 un <- un %>%
@@ -435,11 +411,3 @@ world_bank <- world_bank %>%
 base_data <- base_data %>%
   left_join(world_bank, by = c("ccode", "year"))
 rm(world_bank)
-
-
-
-
-
-
-
-
