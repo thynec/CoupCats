@@ -40,16 +40,8 @@ cw <- cw %>%
   rename(country=location) 
 cw <- cw %>%
   left_join(ccodes, by=c("country", "year"))
-check <- cw %>%
-  filter(loc!=ccode | is.na(ccode)) #need to fix Madagascar
-table(check$country)
-rm(check)
 cw <- cw %>%
   mutate(ccode=ifelse(country=="Madagascar (Malagasy)", 580, ccode))
-check2 <- cw %>%
-  filter(loc!=ccode | is.na(ccode))
-table(check2$country) #we're good
-rm(check2)
 cw <- cw %>%
   mutate(year=year+1) %>% #just lagged
   rename(mcountry=country) %>%
@@ -66,11 +58,7 @@ cw <- cw %>%
 #merge into base
 base_data <- base_data %>%
   left_join(cw, by=c("ccode", "year"))
-check <- base_data %>%
-  filter(mcountry!=country) %>%
-  select(country, mcountry) %>%
-  distinct() 
-rm(check, cw)
+rm(cw)
 base_data <- base_data %>%
   mutate(cw=ifelse(is.na(cw) & year>=1947 & year<=2025, 0, cw)) %>%
   set_variable_labels(cw="3-4 types from UCDP, t-1") %>%
@@ -97,18 +85,6 @@ stability <- stability %>%
   mutate(year = as.integer(year))  # Convert Year to integer
 stability <- stability %>%
   mutate(year=year+1) #just lagged
-
-#checking values
-check <- stability %>%
-  filter(!is.na(stability))
-summary(check) #goes from 1997 to 2024
-rm(check)
-check2 <- stability %>%
-  filter(year>=1997 & year<=2024) %>%
-  filter(is.na(stability))
-table(stability$country) #missing a lot of country/years even when pared down to 1997-2024
-hist(stability$stability) #distribution looks good
-rm(check2)
 
 #1.3 Merging to base_data
 stability <- stability %>%
@@ -138,12 +114,8 @@ vdem_data <- vdem %>%
   filter(year >= 1950) 
 vdem_data <- vdem_data %>% # Merging in ccodes. 
   left_join(ccodes, by = c("year", "country")) 
-check <- vdem_data %>%
-  filter(is.na(ccode))
-table(check$country) #looks good
 vdem_data <- vdem_data %>%
-  filter(!is.na(ccode))
-rm(check) # No Republic of Vietnam (1950-76), Afghanistan (1950-2000), Guinea-Bissau (1950-2005), Laos (2024), Iceland (1950-2019)
+  filter(!is.na(ccode)) # No Republic of Vietnam (1950-76), Afghanistan (1950-2000), Guinea-Bissau (1950-2005), Laos (2024), Iceland (1950-2019)
 vdem_data <- vdem_data %>%
   mutate(expand=ifelse(year==2024, 2, 1)) %>%
   uncount(expand) %>%
@@ -151,22 +123,13 @@ vdem_data <- vdem_data %>%
   mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
   mutate(mobilization=ifelse(year==2025, NA, mobilization)) %>%
   mutate(mobil_conc=ifelse(year==2025, NA, mobil_conc))
-vdem_data <- vdem_data %>%
-  group_by(ccode) %>%
-  mutate(mobilization = if (sum(!is.na(mobilization)) >= 2) na.approx(mobilization, year, rule = 2) else mobilization) %>%
-  mutate(mobil_conc = if (sum(!is.na(mobil_conc)) >= 2) na.approx(mobil_conc, year, rule = 2) else mobil_conc)
 
 # Merging into data set. 
 vdem_data <- vdem_data %>%
   rename(mcountry = country)
 base_data <- base_data %>%
   left_join(vdem_data, by=c("ccode", "year"))
-check <- base_data %>%
-  filter(mcountry!=country) %>%
-  select(country, mcountry) %>%
-  distinct() 
-View(check) # Looks good. 
-rm(check, vdem_data)
+rm(vdem_data)
 base_data <- base_data %>%
   select(-mcountry)
 
@@ -176,7 +139,3 @@ base_data <- base_data %>%
 write.csv(base_data, gzfile("2.c.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################  
-
-
-
-
