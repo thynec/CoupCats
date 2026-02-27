@@ -27,6 +27,45 @@ rm(url, destfile)
 # -----------------------------------------------------------------------------------------------#
 #Bring in more modern GDP data - Tucker Working on
 #---------------------
+#insert World Bank GDP data; 
+library(readxl)
+df <- read_excel("~/Downloads/P_GDP Revised.xlsx")
+
+df <- df %>%
+  select(-'Time Code', -'GDP (constant 2015 US$) [NY.GDP.MKTP.KD]', -'Country Code') %>%
+  rename(country = 'Country Name',
+         year = Time,
+         GDP = 'GDP (current US$) [NY.GDP.MKTP.CD]',
+         GDP_Growth = 'GDP growth (annual %) [NY.GDP.MKTP.KD.ZG]',
+         GDP_percap = 'GDP per capita (current US$) [NY.GDP.PCAP.CD]',
+         GDP_percapgr ='GDP per capita growth (annual %) [NY.GDP.PCAP.KD.ZG]') %>%
+  arrange(country,year)
+
+#adding in ccodes
+library(readxl)
+url <- "http://www.uky.edu/~clthyn2/replace_ccode_country.xls"
+destfile <- "replace_ccode_country.xls"
+curl::curl_download(url, destfile)
+ccodes <- read_excel(destfile)
+rm(destfile,url)
+
+a <- df %>%
+  left_join(ccodes, by =c("country" = "country", "year" = "year")) %>%
+  relocate(ccode)
+rm(df,ccodes)
+#ALLGDP[ALLGDP == ".."] <- NA
+
+a <- a %>%
+  mutate(GDP = as.numeric(GDP),
+         GDP_Growth = as.numeric(GDP_Growth),
+         GDP_percap = as.numeric(GDP_percap),
+         GDP_percapgr = as.numeric(GDP_percapgr)) %>%
+  mutate(year = year+1) #lagged by 1 year 
+
+base_data <- base_data %>%
+  left_join(a, by = c("ccode"="ccode", "year"="year")) %>%
+  select(-country.y) %>%
+  rename(country = country.x)
 
 #------------------------------------------------------------------------------------------------#  
 #bring in all vdem relevant data; clean it up
@@ -414,4 +453,5 @@ world_bank <- world_bank %>%
 base_data <- base_data %>%
   left_join(world_bank, by = c("ccode", "year"))
 rm(world_bank)
+
 
