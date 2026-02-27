@@ -24,6 +24,9 @@ destfile <- "replace_ccode_country.xls"
 curl::curl_download(url, destfile)
 ccodes <- read_excel(destfile)
 rm(url, destfile)
+# -----------------------------------------------------------------------------------------------#
+#Bring in more modern GDP data - Tucker Working on
+#---------------------
 
 #------------------------------------------------------------------------------------------------#  
 #bring in all vdem relevant data; clean it up
@@ -411,3 +414,4 @@ world_bank <- world_bank %>%
 base_data <- base_data %>%
   left_join(world_bank, by = c("ccode", "year"))
 rm(world_bank)
+
