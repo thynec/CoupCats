@@ -363,7 +363,84 @@ rm(gender_data)
 
 
 
+#------------------------------------------------------------------------------------------------#
+# military regime proportion over last 15 years; from milreg
+#------------------------------------------------------------------------------------------------# 
+sorted_base_data <- base_data %>%
+  arrange(country, year, month)
 
+base_data_prop <- sorted_base_data %>%
+  mutate(
+    milreg_prop = rollapplyr(
+      milreg, 
+      width = 180, 
+      FUN = function(x) mean(x==1, na.rm = TRUE), 
+      fill = NA, 
+      align = "right")
+  )
+base_data_prop <- base_data_prop %>%
+  select(ccode, year, month, milreg_prop)
+
+base_data <- left_join(base_data, base_data_prop,
+            by = c("ccode", "month", "year"))
+
+rm(base_data_prop, sorted_base_data)
+
+
+
+
+#------------------------------------------------------------------------------------------------#
+#num of leaders over last 5 and 10 years, archigos 
+#------------------------------------------------------------------------------------------------#  
+archigos <- read_dta("archigosleaderdata.dta")
+
+# make start and end dates 'date' types
+leaders <- archigos %>% 
+  mutate(startdate = as.Date(startdate),
+         enddate = as.Date(enddate)) %>%
+  select(leader, ccode, startdate, enddate)
+rm(archigos)
+
+
+# add date to base_data
+base_data <- base_data %>%
+  mutate(date = as.Date(paste(year, month, "01", sep = "-")))
+
+base_data <- base_data %>%
+  mutate(
+    numleaders_5yr = pmap_dbl(
+      .l = list(ccode, date),
+      .f = function(curr_cc, curr_d) {
+        
+        window_start <- curr_d %m-% years(5)
+        window_end   <- curr_d %m-% months(1)  # exclude current month
+        
+        leaders %>%
+          filter(ccode == curr_cc,
+                 startdate <= window_end,
+                 enddate   >= window_start) %>%
+          pull(leader) %>%
+          n_distinct()
+      }
+    ),
+    numleaders_10yr = pmap_dbl(
+      .l = list(ccode, date),
+      .f = function(curr_cc, curr_d) {
+        
+        window_start <- curr_d %m-% years(10)
+        window_end   <- curr_d %m-% months(1)  # exclude current month
+        
+        leaders %>%
+          filter(ccode == curr_cc,
+                 startdate <= window_end,
+                 enddate   >= window_start) %>%
+          pull(leader) %>%
+          n_distinct()
+      }
+    )
+  )
+
+rm(leaders)
 
 
 
@@ -788,3 +865,4 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #emma_data <- emma_data %>% 
 #  left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
 #rm(age_expectancy)  
+
