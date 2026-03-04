@@ -11,13 +11,16 @@ curl::curl_download(url, destfile)
 ccodes <- read_excel(destfile)
 rm(url, destfile)
 
-#update so we have most recent month: 04/2025
-df <- base_data %>%
-  group_by(country) %>%
-  filter(year==2024) %>%
-  mutate(year=year+1) %>%
-  filter(month<5) %>%
-  ungroup()
+#update so we have most recent month: 03/2026
+df <- bind_rows(
+  base_data %>%
+    filter(year == 2024) %>%
+    mutate(year = 2025),
+  
+  base_data %>%
+    filter(year == 2024, month < 4) %>%
+    mutate(year = 2026)
+)
 base_data <- base_data %>%
   full_join(df, by=c("ccode", "year", "month", "country"))
 rm(df)
@@ -92,5 +95,6 @@ base_data <- base_data %>%
     pce3="Months^3") %>%
   select(-sequence)
 #For above, peace years are set up ignoring success/failed; go back and re-created these if you end up wanting to analyze success/failed instead of all attempts
+
 
 
