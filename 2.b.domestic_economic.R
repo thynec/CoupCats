@@ -415,3 +415,44 @@ base_data <- base_data %>%
   left_join(world_bank, by = c("ccode", "year"))
 rm(world_bank)
 
+
+#-------------------------------------------------------------------------------------#
+#   Bringing in ECI and KOF data sets 
+#-------------------------------------------------------------------------------------#
+#"Growth Lab and Complexity Rankings" 
+
+read.csv("C:/Users/catal/OneDrive/Desktop/coupcats/growth_proj_eci_rankings.csv")
+
+#eci_data <- read_csv(file.choose()) 
+
+install.packages("countrycode")
+library(countrycode) 
+
+eci_data2 <- eci_data2 %>%
+  mutate(country = countrycode(country_iso3_code,
+                               origin = "iso3c",
+                               destination = "country.name"))
+rm(eci_data2)
+
+eci_data2b <- eci_data2 %>% #main dataset to use
+  select(
+    country, 
+    eci_hs92, 
+    eci_rank_hs92, 
+    year) %>%
+  mutate(month = list(1:12)) %>% #expand to monthly 
+      unnest(month) 
+
+base_data <- base_data %>% #merging base data with eci data 
+  left_join(eci_data2b %>%
+              select(country, 
+                     year, 
+                     month, 
+                     eci_hs92), 
+            by = c("country", 
+                   "year", 
+                   "month"))  
+
+
+
+
