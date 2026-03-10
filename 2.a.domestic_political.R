@@ -104,7 +104,8 @@ regime_type <- vdem %>%
   subset(select = c(country, year, regime)) %>%
   rename(regime_type = regime) %>%
   mutate(year=year+1) %>% #just lagged
-  filter(year >= 1950)
+  filter(year >= 1950,
+         year < 2025)
 regime_type <- regime_type %>% 
   left_join(ccodes, by = c("country", "year")) %>% # NAs resulting from state-like actors, not full states.  
   subset(select = -c(country))   %>% # To prevent future duplicated columns. 
@@ -865,4 +866,5 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #emma_data <- emma_data %>% 
 #  left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
 #rm(age_expectancy)  
+
 

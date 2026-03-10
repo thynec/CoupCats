@@ -26,7 +26,21 @@ ccodes <- read_excel(destfile)
 rm(url, destfile)
 # -----------------------------------------------------------------------------------------------#
 #Bring in more modern GDP data - Tucker Working on
-#---------------------
+#------------------------------------------------------------------------------------------------#
+#Penn World Table GDP Data
+library(haven)
+PWT <- read_stata("https://dataverse.nl/api/access/datafile/554030")
+
+PWT <- PWT %>%
+  select(country,year,rgdpna,pop) %>%
+  mutate(pwt_gdppc = rgdpna/pop, #creating GDP per capita
+         year = year+1) %>% #lag
+  left_join(ccodes, by = c("country" = "country", "year" = "year")) %>%
+  select(ccode,year,pwt_gdppc)
+
+base_data <- base_data %>%
+  left_join(PWT, by = c("ccode" = "ccode", "year" = "year"))
+rm(PWT)
 
 #------------------------------------------------------------------------------------------------#  
 #bring in all vdem relevant data; clean it up
@@ -126,18 +140,21 @@ base_data <- base_data %>%
 rm(wdi_gdppc)
 #Splicing vdem+wdi for full years
 df <- base_data %>%
-  select(country, ccode, year, vdem_gdppc, wdi_gdppc) %>%
+  select(country, ccode, year, vdem_gdppc, wdi_gdppc, pwt_gdppc) %>%
   distinct()
 df <- df %>%
   group_by(ccode) %>%
   arrange(ccode, year) %>%
-  mutate(change=(wdi_gdppc-lag(wdi_gdppc))) %>%
+  mutate(wdi_change=(wdi_gdppc-lag(wdi_gdppc))) %>%
+  mutate(pwt_change = (pwt_gdppc) - lag(pwt_gdppc)) %>%
   mutate(now=vdem_gdppc) %>%
-  mutate(perc_change=change/lag(wdi_gdppc)) %>%
+  mutate(wdiperc_change=wdi_change/lag(wdi_gdppc)) %>%
+  mutate(pwtperc_change = pwt_change/lag(pwt_gdppc)) %>% 
   mutate(gdppc=ifelse(is.na(now), lag(now)*perc_change+lag(vdem_gdppc), now)) %>%
-  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
-  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
-  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) 
+  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*pwtperc_change+lag(gdppc), gdppc)) %>% #check
+  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*wdiperc_change+lag(gdppc), gdppc)) %>%
+  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*pwtperc_change+lag(gdppc), gdppc)) %>% #check
+  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*wdiperc_change+lag(gdppc), gdppc))
 hist(df$gdppc) #need to log
 df <- df %>%
   mutate(lgdppcl=log(gdppc))
