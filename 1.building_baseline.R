@@ -1,6 +1,6 @@
-# -------------------------- Baseline Data ------------------------------ #
-
-rm(list=ls()) 
+#------------------------------------------------------------------------------------------------#  
+#Baseline Data
+#------------------------------------------------------------------------------------------------#  
 
 base_data <- read_csv("https://www.uky.edu/~clthyn2/base_data.csv") # Reading in base data. 
 
@@ -11,14 +11,14 @@ curl::curl_download(url, destfile)
 ccodes <- read_excel(destfile)
 rm(url, destfile)
 
-#update so we have most recent month: 03/2026
+#update so we have most recent month: 04/2026
 df <- bind_rows(
   base_data %>%
     filter(year == 2024) %>%
     mutate(year = 2025),
   
   base_data %>%
-    filter(year == 2024, month < 4) %>%
+    filter(year == 2024, month < 5) %>%
     mutate(year = 2026)
 )
 base_data <- base_data %>%
@@ -95,6 +95,3 @@ base_data <- base_data %>%
     pce3="Months^3") %>%
   select(-sequence)
 #For above, peace years are set up ignoring success/failed; go back and re-created these if you end up wanting to analyze success/failed instead of all attempts
-
-
-
