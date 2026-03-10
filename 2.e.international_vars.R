@@ -372,16 +372,54 @@ rm(dy, mon, yearly)
 # Add regional contagion. 
 #------------------------------------------------------------------------------------------------#  
 
-# Bringing in border states. 
-border_states <- create_dyadyears() %>%
-  add_contiguity() %>%
-  filter(year >= 1950) %>%
-  filter(conttype %in% c(1, 2)) # Land borders and very close maritime borders. 
-border_states <- border_states %>%
-  rename(ccode = ccode1,
-         neighbor = ccode2,
-         border_type = conttype) # Where ccode is primary state, neighbor is coup-victim. 
+# Bring in COW direct contiguity 
+url <- "https://correlatesofwar.org/wp-content/uploads/DirectContiguity320.zip"
+download.file(url, "DirectContiguity320.zip")
+unzip("DirectContiguity320.zip", exdir="DirectContiguity320")
+unlink("DirectContiguity320.zip")
+border <- read_csv("DirectContiguity320/DirectContiguity320/contdir.csv")
+unlink("data", recursive=TRUE)
+rm(url)  
 
+#Clean COW contiguity
+border <- border %>%
+  select(-dyad, -statelab, -statehab, -notes, -version) %>%
+  rename(ccode = statelno, #primary state
+         neighbor = statehno, #state bordering primary state
+         border_type = conttype)
+#raw data in form of dyads; creating two way relationships
+border_reversed <- border %>%
+  select(ccode, neighbor, border_type, begin, end) %>%
+  rename(
+    ccode_old = ccode,
+    neighbor_old = neighbor
+  ) %>%
+  mutate(
+    ccode = neighbor_old,
+    neighbor = ccode_old
+  ) %>%
+  select(ccode, neighbor, border_type, begin, end)
+border <- bind_rows(border, border_reversed) %>%
+  distinct() 
+rm(border_reversed)
+
+#expand to monthly
+border <- border %>%
+  mutate(
+    start_id = (begin %/% 100) * 12 + (begin %% 100) - 1,
+    end_id  = (end   %/% 100) * 12 + (end   %% 100) - 1,
+    n_months = end_id - start_id + 1
+  )
+border_expanded <- border %>%
+  uncount(n_months, .id = "month_offset") %>%
+  mutate(
+    month_id = start_id + month_offset - 1,
+    year = month_id %/% 12,
+    month = month_id %% 12 + 1
+  ) %>%
+  select(ccode, neighbor, border_type, year, month) %>%
+  filter(year >= 1950) 
+rm(border)
 
 # Bringing in coup data.
 coup_data <- read_delim("http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coups_final.txt", 
@@ -398,28 +436,73 @@ coup_data <- coup_data %>%
          coup_successful = ifelse(is.na(coup_successful) & year >= 1950, 0, as.numeric(coup_successful)),
          coup_failed = ifelse(is.na(coup_failed) & year >= 1950, 0, as.numeric(coup_failed)))
 
-# Merging data sets. 
-regional_contagion <- border_states %>% 
-  left_join(coup_data, by = c("year", "neighbor" = "ccode"), relationship = "many-to-many") %>%
-  select(-country) %>%
-  mutate(neighbor = labelled(neighbor, label = "coup states")) %>%
-  drop_na()
-rm(coup_data, border_states)
+#Data about border relations until 2016. Assuming border relations stay the same post last update, changing end date to current end of data, March 2026
+dyads_to_extend <- border_expanded %>%
+  group_by(ccode, neighbor, border_type) %>%
+  summarise(
+    last_date = max(year * 100 + month),
+    .groups = "drop"
+  ) %>%
+  filter(last_date == 201612)
+extensions <- dyads_to_extend %>%
+  crossing(
+    year  = rep(2017:2026, each = 12),
+    month = rep(1:12, times = 9)
+  ) %>%
+  filter(!(year == 2026 & month > 3))
+border_expanded <- bind_rows(border_expanded, extensions) %>%
+  arrange(ccode, neighbor, border_type, year, month) %>%
+  select(-last_date)
+rm(dyads_to_extend, extensions)
 
-# Mutating regional contagion. 
-regional_contagion <- regional_contagion %>%
-  mutate(neighboring_coup = case_when(coup_attempt == 1 ~ 1, TRUE ~ 0), relationship = "many-to-many") %>%
-  select(ccode, month, year, neighbor, neighboring_coup)
+#merging in coup data
+regional_contagion <- border_expanded %>% 
+  left_join(coup_data, by = c("year","month", "neighbor" = "ccode"), relationship = "many-to-many") %>%
+  select(-country)
+rm(border_expanded, coup_data)
 
-#create dummy=1 if any neighbor had a coup
+#creating contagion variables
 regional_contagion <- regional_contagion %>%
-  select(-neighbor) %>%
-  distinct()
+  mutate(neighboring_coup_attempt = case_when(coup_attempt == 1 ~ 1, TRUE ~ 0)) %>%
+  mutate(neighboring_coup = case_when(coup_successful == 1 ~ 1, TRUE ~ 0)) %>%
+  select(-border_type, -coup, -coup_successful, -coup_failed, -coup_attempt)
+regional_contagion <- regional_contagion %>%
+  group_by(ccode, year, month) %>%
+  summarise(
+    neighboring_coup = as.numeric(any(neighboring_coup == 1)),
+    neighboring_coup_attempt = as.numeric(any(neighboring_coup_attempt == 1)),
+    .groups = "drop"
+  )
+
+#Creating last 5 years congation
+regional_contagion <- regional_contagion %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(
+    cum_coup = cumsum(neighboring_coup),
+    coup_last_5yrs = ifelse(
+      lag(cum_coup, 1, default = 0) - lag(cum_coup, 60, default = 0) > 0,
+      1, 0
+    )
+  ) %>%
+  select(-cum_coup) %>%
+  ungroup()
+regional_contagion <- regional_contagion %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(
+    cum_coup = cumsum(neighboring_coup_attempt),
+    coup_attempt_last_5yrs = ifelse(
+      lag(cum_coup, 1, default = 0) - lag(cum_coup, 60, default = 0) > 0,
+      1, 0
+    )
+  ) %>%
+  select(-cum_coup) %>%
+  ungroup()
 
 # Merging into base data. 
 base_data <- base_data %>%
-  left_join(regional_contagion, by = c("year", "month", "ccode")) %>%
-  mutate(neighboring_coup = replace_na(neighboring_coup, 0))
+  left_join(regional_contagion, by = c("year", "month", "ccode"))
 
 #------------------------------------------------------------------------------------------------#
 # International Governmental Organizations(IGO)
@@ -727,3 +810,4 @@ base_data <- base_data %>%
   dplyr::select(-country.y) %>%  # Drop duplicate
   dplyr::rename(country = country.x) #renaming
 rm(iw_data)
+
