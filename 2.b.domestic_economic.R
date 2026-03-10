@@ -472,37 +472,4 @@ base_data <- base_data %>% #merging base data with eci data
 
 
 
-#----------------# 
-#KOF Globalization Data set, clean to make cc match eci_data2b 
-#----------------#
-
-library(readr)
-
-
-kof_global <- read_xlsx("C:/Users/catal/OneDrive/Desktop/coupcats/KOFGI_2025_public.xlsx")
-kof_global <- kof_global %>%
-  select(KOFTrGIdf,
-         KOFPoGIdj,
-         country, 
-         year
-         ) %>%
-  mutate(month = list(1:12)) %>%  #expand to monthly 
-          unnest(month) %>%
-  mutate(across(c
-                (KOFTrGIdf,
-                  KOFPoGIdj),
-                ~ .x / 100))  #need to make the percentages back to regular numbers 
-view(kof_global) 
-
-base_data <- base_data %>%
-  left_join(kof_global %>%
-              select(KOFTrGIdf,
-                      KOFPoGIdj,
-                      country, 
-                      year, 
-                     month), 
-              by = c("country", "year", "month")) #merging to base data 
-view(base_data) 
-
-
 
