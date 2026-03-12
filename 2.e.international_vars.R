@@ -17,6 +17,50 @@ setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_resea
 #5. build baseline
 source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
 
+
+#------------------------------------------------------------------------------------------------#
+# tourism; number of arrivals from World Bank Group; https://api.worldbank.org/v2/en/indicator/ST.INT.ARVL?downloadformat=excel
+#------------------------------------------------------------------------------------------------#  
+
+# bring in datasets; Number of Arrivals 
+url <- "https://api.worldbank.org/v2/en/indicator/ST.INT.ARVL?downloadformat=excel"
+destfile <- "ST_INT.xls"
+curl::curl_download(url, destfile)
+arrivals_per_year <- read_excel(destfile, skip = 2)
+rm(url, destfile)
+
+# clean data
+arrivals_per_year <- arrivals_per_year %>%
+  rename("country" = "Country Name") %>% #rename variable names
+  select(-"Country Code", -"Indicator Name", -"Indicator Code") %>% #select relevant data
+  pivot_longer(
+    cols = -c(country),
+    names_to = "year",
+    values_to = "arrivals"
+  ) %>% #pivot so years and arrivals are in columns
+  mutate(year = as.integer(year)) %>% #convert year to integer 
+  mutate(year=year+1) %>%
+  mutate(arrivals = as.integer(arrivals)) #convert arrivals to integer
+
+# merge in ccodes 
+arrivals_per_year <- arrivals_per_year %>%
+  mutate(country=ifelse(country=="Turkiye", "Turkey", country)) %>%
+  left_join(ccodes, by = c("country", "year")) 
+
+check <- arrivals_per_year %>%
+  filter(is.na(ccode)) %>%
+  select(-year, -arrivals) %>%
+  distinct() #looks good after fixing Turkey above
+rm(check)
+arrivals_per_year <- arrivals_per_year %>%
+  drop_na(ccode) %>% # drop rows that do not have a set country code 
+  select("ccode", "year", "arrivals") # remove country names
+
+# merge into base_data
+base_data <- base_data %>%
+  left_join(arrivals_per_year, by = c("ccode", "year"))
+
+
 #------------------------------------------------------------------------------------------------#
 #add cold war dummy
 #------------------------------------------------------------------------------------------------#  
@@ -810,4 +854,5 @@ base_data <- base_data %>%
   dplyr::select(-country.y) %>%  # Drop duplicate
   dplyr::rename(country = country.x) #renaming
 rm(iw_data)
+
 
