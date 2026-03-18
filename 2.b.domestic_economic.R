@@ -432,7 +432,56 @@ base_data <- base_data %>%
   left_join(world_bank, by = c("ccode", "year"))
 rm(world_bank)
 
+#------------------------------------------------#
+#Better gini
+#------------------------------------------------#
+#Pulling Gini from UN WIID
+library(readxl)
+url <- "https://www.wider.unu.edu/sites/default/files/WIID/wiidcountry_4.xlsx"
+destfile <- "wiidcountry_4.xlsx"
+curl::curl_download(url, destfile)
+wiid <- read_excel(destfile)
+rm(destfile,url)
 
+df <- wiid %>%
+  filter(giniseries == 1) %>%
+  select(country,year,gini_std) %>%
+  rename(gini_wiid = gini_std) %>%
+  left_join(ccodes, by = c("country" = "country", "year" = "year")) %>%
+  select(-country)
+rm(wiid)
+
+base_data <- base_data %>%
+  left_join(df, by = c("ccode" = "ccode", "year" = "year"))
+rm(df)
+
+#pulling Gini from SWIID
+library(readr)
+swiid <- read_csv("https://github.com/fsolt/swiid/raw/master/data/swiid_summary.csv")
+
+df <- swiid %>%
+  select(country,year,gini_disp) %>%
+  left_join(ccodes, by = c("country" = "country", "year" = "year")) %>%
+  select(-country)
+rm(swiid)
+
+base_data <- base_data %>%
+  left_join(df, by = c("ccode" = "ccode", "year" = "year"))
+rm(df)
+
+df <- base_data %>%
+  select(country,ccode,year,gini,gini_disp,gini_wiid) %>%
+  distinct()
+
+df <- df %>%
+  mutate(ginifin = ifelse(is.na(gini), ifelse(is.na(gini_wiid), gini_disp, gini_wiid), gini)) %>% #chooses WDI first, then UN WIID then SWIID
+  select(-c(gini,gini_wiid,gini_disp,country)) %>%
+  rename(gini = ginifin)
+
+base_data <- base_data %>%
+  select(-c(gini,gini_wiid,gini_disp,country)) %>%
+  left_join(df, by = c("ccode" = "ccode", "year" = "year"))
+rm(df)
 
 #-------------------------------------------------------------------------------------#
 #   Bringing in ECI , this one goes in economic
