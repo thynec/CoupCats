@@ -188,6 +188,48 @@ base_data <- base_data %>%
   set_variable_labels(cw="3-4 types from UCDP, t-1") %>%
   select(-mcountry)
 
+#------------------------------------------------------------------------------------------------#
+#civil conflict severity (battle-related deaths) from UCDP; https://ucdp.uu.se/downloads/
+#------------------------------------------------------------------------------------------------#  
+
+#bring in data
+url <- "https://ucdp.uu.se/downloads/brd/ucdp-brd-conf-251-xlsx.zip"
+download.file(url, "data.zip")
+unzip("data.zip", exdir="data")
+unlink("data.zip")
+brd <- read_excel(list.files("data", pattern="\\.xlsx$", full.names=TRUE)[1])
+unlink("data", recursive=TRUE)
+rm(url)
+
+#clean data; only type 3 and 4 conflicts; aggregate deaths to country-year
+brd <- brd %>%
+  filter(type_of_conflict=="3" | type_of_conflict=="4") %>%
+  mutate(year=as.numeric(year)) %>%
+  rename(country=location_inc) %>%
+  group_by(country, year) %>%
+  summarise(brd=sum(bd_best, na.rm=TRUE), .groups="drop")
+brd <- brd %>%
+  left_join(ccodes, by=c("country", "year"))
+brd <- brd %>%
+  filter(!is.na(ccode)) %>%
+  mutate(year=year+1) %>% #just lagged
+  distinct()
+#expand for 2025; assume that conflicts in 2024 continue to 2025
+brd <- brd %>%
+  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  uncount(expand) %>%
+  arrange(ccode, year) %>%
+  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
+  group_by(ccode, year) %>%
+  summarise(brd=sum(brd, na.rm=TRUE), .groups="drop") %>%
+  select(ccode, year, brd)
+#merge
+base_data <- base_data %>%
+  left_join(brd, by=c("ccode", "year"))
+rm(brd)
+base_data <- base_data %>%
+  mutate(brd=ifelse(is.na(brd) & year>=1989 & year<=2025, 0, brd)) %>%
+  set_variable_labels(brd="battle-related deaths, types 3-4, UCDP, t-1")
 
 
 
