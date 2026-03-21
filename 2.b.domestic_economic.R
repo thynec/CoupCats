@@ -8,8 +8,8 @@
 rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
-#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #Clay at home
+setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
 #setwd("~/Desktop/TEK 300") #Leah
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
@@ -24,23 +24,6 @@ destfile <- "replace_ccode_country.xls"
 curl::curl_download(url, destfile)
 ccodes <- read_excel(destfile)
 rm(url, destfile)
-# -----------------------------------------------------------------------------------------------#
-#Bring in more modern GDP data - Tucker Working on
-#------------------------------------------------------------------------------------------------#
-#Penn World Table GDP Data
-library(haven)
-PWT <- read_stata("https://dataverse.nl/api/access/datafile/554030")
-
-PWT <- PWT %>%
-  select(country,year,rgdpna,pop) %>%
-  mutate(pwt_gdppc = rgdpna/pop, #creating GDP per capita
-         year = year+1) %>% #lag
-  left_join(ccodes, by = c("country" = "country", "year" = "year")) %>%
-  select(ccode,year,pwt_gdppc)
-
-base_data <- base_data %>%
-  left_join(PWT, by = c("ccode" = "ccode", "year" = "year"))
-rm(PWT)
 
 #------------------------------------------------------------------------------------------------#  
 #bring in all vdem relevant data; clean it up
@@ -110,74 +93,428 @@ vdem <- vdem %>% # Merging in ccodes.
 
 #------------------------------------------------------------------------------------------------#      
 #building gdp/cap measure
-#------------------------------------------------------------------------------------------------#      
+#------------------------------------------------------------------------------------------------#    
+
 #start with Vdem; already lagged from above
 vdem_gdppc <- vdem %>%
   subset(select = c(country, ccode, year, gdppc)) %>%
   rename(vdem_gdppc = gdppc,
-         c_merge = country) 
+         c_merge = country) %>%
+  mutate(month=12)
 base_data <- base_data %>%
-  left_join(vdem_gdppc, by = c("ccode", "year"))
+  left_join(vdem_gdppc, by = c("ccode", "year", "month"))
 base_data <- base_data %>%
   subset(select = -c(c_merge))
 rm(vdem_gdppc, vdem)
-#Now deal with WDI
+
+#Penn World Table GDP Data
+pwt <- read_stata("https://dataverse.nl/api/access/datafile/554030")
+
+pwt <- pwt %>%
+  select(country, year, pop, hc, rgdpna) %>%
+  set_variable_labels(
+    pop="pop, Penn, t-1, ln",
+    hc="human cap index, Penn, t-1"
+  ) %>%
+  mutate(year=year+1) %>%
+  mutate(gdppc=log10(rgdpna/pop)) %>%
+  select(-rgdpna, -pop) %>% 
+  left_join(ccodes, by = c("country" = "country", "year" = "year"))
+check <- pwt %>%
+  filter(is.na(ccode)) %>%
+  select(country) %>%
+  distinct()
+rm(check)
+#need to add:
+#490 = D.R. of the Congo
+#812 = Lao People's DR
+#510 = U.R. of Tanzania: Mainland
+pwt <- pwt %>%
+  mutate(ccode=ifelse(country=="D.R. of the Congo", 490, ccode)) %>%
+  mutate(ccode=ifelse(country=="Lao People's DR", 812, ccode)) %>%
+  mutate(ccode=ifelse(country=="U.R. of Tanzania: Mainland", 510, ccode)) %>%
+  select(-country) %>%
+  mutate(month=12)
+base_data <- base_data %>%
+  left_join(pwt, by = c("ccode", "year", "month"))
+rm(pwt)
+
+#WDI
 wdi_gdppc <- WDI(country = "all",
                  indicator = "NY.GDP.PCAP.CD", 
                  start = 1960, 
-                 end = 2024,
+                 end = 2026,
                  extra = TRUE)
 wdi_gdppc <- wdi_gdppc %>%
   subset(select = c(country, year, NY.GDP.PCAP.CD)) %>%
   rename(wdi_gdppc = NY.GDP.PCAP.CD) %>%
   mutate(year=year+1) %>% #just lagged
+  mutate(month=12) %>%
   left_join(ccodes, by = c("year", "country")) %>%
-  rename(c_merge = country)
+  rename(c_merge = country) %>%
+  mutate(ccode=ifelse(c_merge=="Turkiye", 640, ccode)) %>%
+  mutate(ccode=ifelse(c_merge=="Somalia, Fed. Rep.", 520, ccode)) %>%
+  select(-c_merge)
 base_data <- base_data %>%
-  left_join(wdi_gdppc, by = c("ccode", "year")) 
-base_data <- base_data %>%
-  subset(select = -c(c_merge))
+  left_join(wdi_gdppc, by = c("ccode", "year", "month")) 
 rm(wdi_gdppc)
-#Splicing vdem+wdi for full years
-df <- base_data %>%
-  select(country, ccode, year, vdem_gdppc, wdi_gdppc, pwt_gdppc) %>%
-  distinct()
-df <- df %>%
-  group_by(ccode) %>%
-  arrange(ccode, year) %>%
-  mutate(wdi_change=(wdi_gdppc-lag(wdi_gdppc))) %>%
-  mutate(pwt_change = (pwt_gdppc) - lag(pwt_gdppc)) %>%
-  mutate(now=vdem_gdppc) %>%
-  mutate(wdiperc_change=wdi_change/lag(wdi_gdppc)) %>%
-  mutate(pwtperc_change = pwt_change/lag(pwt_gdppc)) %>% 
-  mutate(gdppc=ifelse(is.na(now), lag(now)*perc_change+lag(vdem_gdppc), now)) %>%
-  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*pwtperc_change+lag(gdppc), gdppc)) %>% #check
-  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*wdiperc_change+lag(gdppc), gdppc)) %>%
-  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*pwtperc_change+lag(gdppc), gdppc)) %>% #check
-  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*wdiperc_change+lag(gdppc), gdppc))
-hist(df$gdppc) #need to log
-df <- df %>%
-  mutate(lgdppcl=log(gdppc))
-hist(df$gdppc) #looks good
-df <- df %>%
-  select(ccode, year, gdppc, lgdppcl)
-#create % change in gdp/cap using non-logged data
-df <- df %>%
-  group_by(ccode) %>%
-  arrange(ccode, year) %>%
-  mutate(ch_gdppcl=((gdppc-lag(gdppc))/lag(gdppc))) %>% #huge range but seems legit
-  select(-gdppc)
-#merge to base
+cor.test(base_data$gdppc, base_data$vdem_gdppc) #looks reasonable
+cor.test(base_data$gdppc, base_data$wdi_gdppc) #looks reasonable
+cor.test(base_data$vdem_gdppc, base_data$wdi_gdppc) #looks reasonable
+
+#year, state coverage...
+penn <- base_data %>%
+  select(year, gdppc) %>%
+  filter(!is.na(gdppc))
+summary(penn) #1951-2024
+rm(penn)
+vdem <- base_data %>%
+  select(year, vdem_gdppc) %>%
+  filter(!is.na(vdem_gdppc))
+summary(vdem) #1950-2020
+rm(vdem)
+wdi <- base_data %>%
+  select(year, wdi_gdppc) %>%
+  filter(!is.na(wdi_gdppc))
+summary(wdi) #1961-2025
+rm(wdi)
+
+#not seeing Penn add anything, so going to drop that. It also has the lowest correlation.
+#linear interpolate both WDI and Vdem
 base_data <- base_data %>%
-  select(-vdem_gdppc, -wdi_gdppc) %>%
-  left_join(df, by=c("ccode", "year")) %>%
-  set_variable_labels(
-    lgdppcl="GDP/cap, WDI+vdem, t-1, log",
-    ch_gdppcl="%ch GDP/cap, WDI+vdem, t-1")
-rm(df)  
+  select(-gdppc) %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(vdem_gdppc_OG=vdem_gdppc) %>%
+  set_variable_labels(vdem_gdppc_OG = "vdem, original, gdppc, t-1") %>%
+  mutate(wdi_gdppc_OG=wdi_gdppc) %>%
+  set_variable_labels(wdi_gdppc_OG = "wdi, original, gdppc, t-1") %>%
+  mutate(
+    time_id = year + (month - 1) / 12,
+    vdem = na.approx(vdem_gdppc, x = time_id, na.rm = FALSE)
+  ) %>%
+  mutate(wdi=na.approx(wdi_gdppc, x=time_id, na.rm=FALSE)) %>%
+  ungroup() %>%
+  select(-vdem_gdppc, -wdi_gdppc)
+cor.test(base_data$vdem, base_data$wdi) #looks reasonable
+base_data <- base_data %>%
+  group_by(ccode) %>%
+  arrange(ccode, year, month) %>%
+  mutate(per = (wdi - lag(wdi)) / lag(wdi)) %>%
+  mutate(
+    gdppc = accumulate(
+      seq_along(vdem),
+      .init = vdem[1],
+      ~ if (!is.na(vdem[.y])) {
+        vdem[.y]
+      } else {
+        .x * (1 + per[.y])
+      }
+    )[-1]
+  ) %>%
+  ungroup()
+
+lin_extrap <- function(x, y) {
+  keep <- !is.na(y)
+  
+  if (sum(keep) == 0) return(y)
+  if (sum(keep) == 1) return(rep(y[keep][1], length(y)))
+  
+  x_obs <- x[keep]
+  y_obs <- y[keep]
+  
+  y_new <- approx(x_obs, y_obs, xout = x, method = "linear", rule = 1)$y
+  
+  left_slope <- (y_obs[2] - y_obs[1]) / (x_obs[2] - x_obs[1])
+  left_idx <- x < min(x_obs)
+  y_new[left_idx] <- y_obs[1] + left_slope * (x[left_idx] - x_obs[1])
+  
+  n <- length(x_obs)
+  right_slope <- (y_obs[n] - y_obs[n - 1]) / (x_obs[n] - x_obs[n - 1])
+  right_idx <- x > max(x_obs)
+  y_new[right_idx] <- y_obs[n] + right_slope * (x[right_idx] - x_obs[n])
+  
+  y_new
+}
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(
+    gdppc = lin_extrap(time_id, gdppc)
+  ) %>%
+  ungroup() %>%
+  mutate(gdppc=log10(gdppc+1))
+base_data <- base_data %>%
+  select(-vdem, -wdi, -per) %>%
+  set_variable_labels(gdppc = "GDP/cap, WDI+vdem splice, interpolated")
+
+#deal with human cap index from Penn
+summary(base_data$hc) #range: 1.007, 3.986
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  mutate(hc_OG = hc) %>%
+  group_by(ccode) %>%
+  mutate(hc = lin_extrap(time_id, hc_OG)) %>%
+  mutate(hc = ifelse(hc<1.007, 1.007, hc)) %>%
+  mutate(hc = ifelse(hc>3.986, 3.986, hc)) %>%
+  ungroup() %>%
+  set_variable_labels(hc_OG = "human cap index, original, Penn, t-1") %>%
+  set_variable_labels(hc = "human cap index, interpolated")
 
 #------------------------------------------------------------------------------------------------#      
-#building CPI
+# VARIABLES PULLED FROM WORLD BANK: RESOURCE RENTS, DEBT, TOURISM, GINI
+#looking at data, removed tourism - just not enough data
+#------------------------------------------------------------------------------------------------# 
+
+# Bringing in data. 
+wb <- WDI(country = "all",
+                  indicator = c("DT.ODA.ODAT.GN.ZS", "NY.GDP.NGAS.RT.ZS", "NY.GDP.TOTL.RT.ZS",
+                                "DT.TDS.DECT.GN.ZS", "ST.INT.RCPT.CD", "ST.INT.XPND.CD", 
+                                "SI.POV.GINI"),
+                  start = 1960,
+                  end = 2025,
+                  extra = TRUE)
+
+# Cleaning up data. 
+wb <- wb %>% 
+  select(country, year, DT.ODA.ODAT.GN.ZS, NY.GDP.NGAS.RT.ZS, NY.GDP.TOTL.RT.ZS, DT.TDS.DECT.GN.ZS, ST.INT.RCPT.CD, ST.INT.XPND.CD, SI.POV.GINI) %>%
+  rename(oda = DT.ODA.ODAT.GN.ZS, 
+         ngas = NY.GDP.NGAS.RT.ZS,
+         nr_rents = NY.GDP.TOTL.RT.ZS, 
+         debt = DT.TDS.DECT.GN.ZS, 
+         trsm_inflows = ST.INT.RCPT.CD, 
+         trsm_outflows = ST.INT.XPND.CD, 
+         gini = SI.POV.GINI) %>% 
+  left_join(ccodes, by = c("country", "year")) %>%
+  select(-trsm_inflows, -trsm_outflows, -ngas)
+check <- wb %>%
+  filter(is.na(ccode)) %>%
+  select(country) %>%
+  distinct()
+rm(check)
+wb <- wb %>%
+  mutate(ccode=ifelse(country=="Turkiye", 640, ccode)) %>%
+  mutate(ccode=ifelse(country=="Somalia, Fed. Rep.", 520, ccode)) %>%
+  relocate(country, ccode, year) %>%
+  mutate(month=12) %>%
+  mutate(year=year+1) %>% #just lagged
+  select(-country)
+
+# Merging into base data. 
+base_data <- base_data %>%
+  left_join(wb, by = c("ccode", "year", "month"))
+rm(wb)
+
+#deal with missing data
+summary(base_data$oda) #oda range: -8.224, 169.593
+oda <- base_data %>% 
+    filter(!is.na(oda))
+  summary(oda$year) #oda = 1961-2024; assume na=0
+  rm(oda)
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(oda_OG = oda) %>%
+  set_variable_labels(oda_OG = "Net ODA received (% of GNI), original, t-1") %>%
+  mutate(
+    oda = if_else(
+      year < 1961,
+      oda,
+      lin_extrap(row_number(), oda)
+    )
+  ) %>%
+  mutate(oda=ifelse(is.na(oda) & year>=1961, 0, oda)) %>%
+  mutate(oda=ifelse(oda<0, -8.224, oda)) %>%
+  mutate(oda=ifelse(oda>169.593, 169.593, oda))
+
+summary(base_data$nr_rents) #nr_rents range: 0, 88.592
+nr_rents <- base_data %>% 
+  filter(!is.na(nr_rents))
+    summary(nr_rents$year) #nr_rents = 1971-2022
+    rm(nr_rents)
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(nr_rents_OG = nr_rents) %>%
+  set_variable_labels(nr_rents_OG = "Nat resource rents (% of GDP), original, t-1") %>%
+  mutate(
+    nr_rents = if_else(
+      year < 1971,
+      nr_rents,
+      lin_extrap(row_number(), nr_rents)
+    )
+  ) %>%
+  mutate(nr_rents=ifelse(is.na(nr_rents) & year>=1971, 0, nr_rents)) %>%
+  mutate(nr_rents=ifelse(nr_rents<0, 0, nr_rents)) %>%
+  mutate(nr_rents=ifelse(nr_rents>88.592, 88.592, nr_rents))
+    
+summary(base_data$debt) #debt range: 0, 102.222
+debt <- base_data %>% filter(!is.na(debt))
+  summary(debt$year) #debt = 1971-2025
+    rm(debt)
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(debt_OG=debt) %>%
+  set_variable_labels(debt_OG = "Total debt svc (% of GNI), original, t-1") %>%
+  mutate(
+    debt = if_else(
+      year < 1971,
+      debt,
+      lin_extrap(row_number(), debt)
+    )
+  ) %>%
+  mutate(debt=ifelse(is.na(debt) & year>=1971, 0, debt)) %>%
+  mutate(debt=ifelse(debt<0, 0, debt)) %>%
+  mutate(debt=ifelse(debt>102.222, 102.222, debt))
+
+base_data <- base_data %>%
+  relocate(country, ccode, year, month, coup_attempt, gdppc, hc, oda, nr_rents, debt, gini)
+    
+#------------------------------------------------#
+#Work on GINI; splice WDI/WIID/SWIID
+#------------------------------------------------#
+
+#WDI stuff
+summary(base_data$gini) #range: 20.2, 71.1
+gini <- base_data %>% 
+  filter(!is.na(gini))
+summary(gini$year) #debt = 1964-2025
+rm(gini)
+
+#Pulling Gini from UN WIID
+url <- "https://www.wider.unu.edu/sites/default/files/WIID/wiidcountry_4.xlsx"
+destfile <- "wiidcountry_4.xlsx"
+curl::curl_download(url, destfile)
+wiid <- read_excel(destfile)
+rm(destfile, url)
+  
+wiid <- wiid %>%
+  arrange(country, year)
+wiid <- wiid %>%
+  filter(giniseries == 1) %>%
+  select(country,year,gini_std) %>%
+  rename(gini_wiid = gini_std) %>%
+  left_join(ccodes, by = c("country" = "country", "year" = "year")) 
+check <- wiid %>%
+  filter(is.na(ccode)) %>%
+  select(country) %>%
+  distinct()
+#need to add...
+wiid <- wiid %>%
+  mutate(ccode=ifelse(country=="Congo, Democratic Republic of the", 490, ccode)) %>%
+  mutate(ccode=ifelse(country=="Congo, Republic of the", 484, ccode)) %>%
+  mutate(ccode=ifelse(country=="Japan", 740, ccode)) %>%
+  mutate(ccode=ifelse(country=="Turkiye", 640, ccode)) %>%
+  mutate(ccode=ifelse(country=="United States", 2, ccode)) 
+check <- wiid %>%
+  filter(is.na(ccode)) %>%
+  select(country) %>%
+  distinct() #we're good
+rm(check)
+wiid <- wiid %>%
+  mutate(year=year+1) %>% #just lagged
+  mutate(month=12) %>%
+  select(-country) %>%
+  group_by(ccode, year, month) %>%
+  distinct() %>%
+  ungroup()
+check <- wiid %>%
+  arrange(ccode, year, month) %>%
+  mutate(check=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #this is Russia; neither duplicate makes a ton of sense; drop both to be safe
+rm(check)
+wiid <- wiid %>%
+  mutate(gini_wiid=ifelse(ccode==365 & year==1994, -999, gini_wiid)) %>%
+  filter(!is.na(ccode)) %>%
+  filter(gini_wiid>=0)
+base_data <- base_data %>%
+  left_join(wiid, by = c("ccode", "year", "month")) %>%
+  set_variable_labels(gini_wiid = "GINI; WIID, original, t-1") %>%
+  rename(gini_wiid_OG=gini_wiid) %>%
+  rename(gini_wdi_OG=gini) %>%
+  set_variable_labels(gini_wdi_OG = "GINI, WDI, original, t-1") %>%
+  relocate(gini_wdi_OG, gini_wiid_OG)
+rm(wiid)
+
+#pulling Gini from SWIID
+swiid <- read_csv("https://github.com/fsolt/swiid/raw/master/data/swiid_summary.csv")
+swiid <- swiid %>%
+  select(country,year,gini_disp) %>%
+  mutate(year=year+1) %>%
+  left_join(ccodes, by = c("country", "year"))
+summary(swiid) #1961-2025; range: 16.9 - 65.2
+check <- swiid %>%
+  filter(is.na(ccode)) %>%
+  select(country) %>%
+  distinct() #need to add: Congo-Kinshasa = 490
+swiid <- swiid %>%
+  mutate(ccode=ifelse(country=="Congo-Kinshasa", 490, ccode))
+rm(check)
+swiid <- swiid %>%
+  select(-country) %>%
+  rename(gini_swiid_OG=gini_disp) %>%
+  set_variable_labels(gini_swiid_OG = "GINI, SWIID, original, t-1") %>%
+  mutate(month=12)
+swiid <- swiid %>%
+  arrange(ccode, year, month) %>%
+  mutate(check=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) %>% #these are just Russia duplicates; can drop
+  filter(check!=1) %>%
+  select(-check) 
+
+base_data <- base_data %>%
+  left_join(swiid, by = c("ccode", "year", "month")) %>%
+  relocate(gini_wdi_OG, gini_wiid_OG, gini_swiid_OG)
+rm(swiid)
+
+cor.test(base_data$gini_wdi_OG, base_data$gini_wiid_OG) 
+cor.test(base_data$gini_wdi_OG, base_data$gini_swiid_OG)
+cor.test(base_data$gini_wiid_OG, base_data$gini_swiid_OG) 
+  #...getting at the same thing
+
+base_data <- base_data %>%
+  ungroup() %>%
+  mutate(gini_wdi_OG = as.vector(scale(gini_wdi_OG))) %>%
+  mutate(gini_wiid_OG = as.vector(scale(gini_wiid_OG))) %>%
+  mutate(gini_swiid_OG = as.vector(scale(gini_swiid_OG))) %>%
+  mutate(gini=gini_swiid_OG) %>%
+  mutate(gini=ifelse(is.na(gini), gini_wiid_OG, gini)) %>%
+  mutate(gini=ifelse(is.na(gini), gini_wdi_OG, gini)) %>%
+  relocate(gini, gini_wdi_OG, gini_wiid_OG, gini_swiid_OG)
+
+summary(base_data$gini) #range: -2.464, 3.438
+gini <- base_data %>%
+  filter(!is.na(gini))
+summary(gini$year) #years: 1950-2025
+rm(gini)
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(gini_OG = gini) %>%
+  set_variable_labels(gini_OG = "gini, original, t-1, swiid wiid wdi") %>%
+  mutate(gini=lin_extrap(row_number(), gini_OG)) %>%
+  mutate(gini=ifelse(gini < -2.464, -2.464, gini)) %>%
+  mutate(gini=ifelse(gini > 3.438, 3.438, gini))
+  
+base_data <- base_data %>%
+  relocate(country, ccode, year, month, coup_attempt, gdppc, hc, oda, nr_rents, debt, gini)
+summary(base_data)
+
+###############################################################################################
+#Checked through above and ready to produce .csv and upload to github
+#clean up if needed and export
+write.csv(base_data, gzfile("2.b.base_data.csv.gz"), row.names = FALSE)
+#Now push push the file that was just written to the working directory to github
+###############################################################################################  
+
+
+
+
+
+
+
+
+#------------------------------------------------------------------------------------------------#      
+#building CPI; as of 03/17/26 clay didn't update anything below for CPI
 #------------------------------------------------------------------------------------------------# 
 
 #Bringing in CPI data from world bank, using 2010 as base year
@@ -344,7 +681,7 @@ un <- un %>%
 un <- un %>% #Merging ccodes
   mutate(country = tolower(country)) %>%
   distinct()
-ccodes <- ccodes %>%
+ccodes_lower <- ccodes %>%
   mutate(country = tolower(country)) %>%
   distinct() 
 un <- un %>%
@@ -354,7 +691,8 @@ un <- un %>%
   mutate(country=ifelse(country=="venezuela, rep. bol.", "venezuela", country)) %>%
   mutate(country=ifelse(country=="azerbaijan, rep. of", "azerbaijan", country)) %>%
   mutate(country=ifelse(country=="bahrain, kingdom of", "bahrain", country)) %>%
-  left_join(ccodes, by = c("country", "year"))
+  left_join(ccodes_lower, by = c("country", "year"))
+rm(ccodes_lower)
 un <- un %>%
   filter(!is.na(ccode))
 un <- un %>%
@@ -394,136 +732,46 @@ CPI_yearly <- CPI %>%
 base_data <- base_data %>%
   left_join(CPI_yearly, by=c("ccode", "year"))
 
-###############################################################################################
-#Checked through above and ready to produce .csv and upload to github
-#clean up if needed and export
-write.csv(base_data, gzfile("2.b.base_data.csv.gz"), row.names = FALSE)
-#Now push push the file that was just written to the working directory to github
-###############################################################################################  
 
-#------------------------------------------------------------------------------------------------#      
-# VARIABLES PULLED FROM WORLD BANK: RESOURCE RENTS, DEBT, TOURISM, GINI
-#------------------------------------------------------------------------------------------------# 
 
-# Bringing in data. 
-world_bank <- WDI(country = "all",
-                  indicator = c("DT.ODA.ODAT.GN.ZS", "NY.GDP.NGAS.RT.ZS", "NY.GDP.TOTL.RT.ZS",
-                                "DT.TDS.DECT.GN.ZS", "ST.INT.RCPT.CD", "ST.INT.XPND.CD", 
-                                "SI.POV.GINI"),
-                  start = 1960,
-                  end = 2025,
-                  extra = TRUE)
 
-# Cleaning up data. 
-world_bank <- world_bank %>% 
-  select(country, year, DT.ODA.ODAT.GN.ZS, NY.GDP.NGAS.RT.ZS, NY.GDP.TOTL.RT.ZS, DT.TDS.DECT.GN.ZS, ST.INT.RCPT.CD, ST.INT.XPND.CD, SI.POV.GINI) %>%
-  rename(oda = DT.ODA.ODAT.GN.ZS, 
-         ngas = NY.GDP.NGAS.RT.ZS,
-         nr_rents = NY.GDP.TOTL.RT.ZS, 
-         debt = DT.TDS.DECT.GN.ZS, 
-         trsm_inflows = ST.INT.RCPT.CD, 
-         trsm_outflows = ST.INT.XPND.CD, 
-         gini = SI.POV.GINI) %>% 
-  left_join(ccodes, by = c("country", "year")) %>%
-  select(-country)
-
-# Merging into base data. 
-base_data <- base_data %>%
-  left_join(world_bank, by = c("ccode", "year"))
-rm(world_bank)
-
-#------------------------------------------------#
-#Better gini
-#------------------------------------------------#
-#Pulling Gini from UN WIID
-library(readxl)
-url <- "https://www.wider.unu.edu/sites/default/files/WIID/wiidcountry_4.xlsx"
-destfile <- "wiidcountry_4.xlsx"
-curl::curl_download(url, destfile)
-wiid <- read_excel(destfile)
-rm(destfile,url)
-
-df <- wiid %>%
-  filter(giniseries == 1) %>%
-  select(country,year,gini_std) %>%
-  rename(gini_wiid = gini_std) %>%
-  left_join(ccodes, by = c("country" = "country", "year" = "year")) %>%
-  select(-country)
-rm(wiid)
-
-base_data <- base_data %>%
-  left_join(df, by = c("ccode" = "ccode", "year" = "year"))
-rm(df)
-
-#pulling Gini from SWIID
-library(readr)
-swiid <- read_csv("https://github.com/fsolt/swiid/raw/master/data/swiid_summary.csv")
-
-df <- swiid %>%
-  select(country,year,gini_disp) %>%
-  left_join(ccodes, by = c("country" = "country", "year" = "year")) %>%
-  select(-country)
-rm(swiid)
-
-base_data <- base_data %>%
-  left_join(df, by = c("ccode" = "ccode", "year" = "year"))
-rm(df)
-
-df <- base_data %>%
-  select(country,ccode,year,gini,gini_disp,gini_wiid) %>%
-  distinct()
-
-df <- df %>%
-  mutate(ginifin = ifelse(is.na(gini), ifelse(is.na(gini_wiid), gini_disp, gini_wiid), gini)) %>% #chooses WDI first, then UN WIID then SWIID
-  select(-c(gini,gini_wiid,gini_disp,country)) %>%
-  rename(gini = ginifin)
-
-base_data <- base_data %>%
-  select(-c(gini,gini_wiid,gini_disp,country)) %>%
-  left_join(df, by = c("ccode" = "ccode", "year" = "year"))
-rm(df)
 
 #-------------------------------------------------------------------------------------#
-#   Bringing in ECI , this one goes in economic
+#   Bringing in ECI and KOF data sets 
 #-------------------------------------------------------------------------------------#
 #"Growth Lab and Complexity Rankings" 
 
+read.csv("C:/Users/catal/OneDrive/Desktop/coupcats/growth_proj_eci_rankings.csv")
 
-eci_data <- read.csv("C:/Users/catal/OneDrive/Desktop/coupcats/growth_proj_eci_rankings.csv")
+#eci_data <- read_csv(file.choose()) 
 
 install.packages("countrycode")
 library(countrycode) 
 
-eci_data2 <- eci_data %>%
+eci_data2 <- eci_data2 %>%
   mutate(country = countrycode(country_iso3_code,
                                origin = "iso3c",
                                destination = "country.name"))
+rm(eci_data2)
 
 eci_data2b <- eci_data2 %>% #main dataset to use
   select(
     country, 
-    eci_hs92, #economic complexity number
-    eci_rank_hs92,  #ranking 
+    eci_hs92, 
+    eci_rank_hs92, 
     year) %>%
-  mutate(year=year+1) %>% #lagging 
   mutate(month = list(1:12)) %>% #expand to monthly 
-  unnest(month)%>% 
-  mutate(across(
-    c(eci_hs92, 
-      eci_rank_hs92), 
-    ~ifelse(month == 12, .x, NA)
-  )) 
+  unnest(month) 
 
 base_data <- base_data %>% #merging base data with eci data 
   left_join(eci_data2b %>%
               select(country, 
                      year, 
-                     month), 
+                     month, 
+                     eci_hs92), 
             by = c("country", 
                    "year", 
                    "month"))  
-view(base_data) 
-
 
 
 
