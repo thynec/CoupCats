@@ -855,4 +855,53 @@ base_data <- base_data %>%
   dplyr::rename(country = country.x) #renaming
 rm(iw_data)
 
+#-----------------------------------------------------------------# 
+#KOF Globalization 
+#-----------------------------------------------------------------#
+
+library(readr)
+
+kof_global <- read_csv("https://github.com/catalinahix06-star/CoupCats/raw/refs/heads/main/KOFGI_2025_public(Sheet1).csv")
+
+
+kof_global <- kof_global %>%
+  select(KOFTrGIdf, #trade globalization, de facto
+         KOFPoGIdj, #political globalization, de jure
+         KOFCuGIdf, #gender parity 
+         KOFIpGIdf, #interpersonal globalization de facto
+         country, 
+         year) %>%
+  mutate(month = list(1:12)) %>%  #expand to monthly 
+  unnest(month) %>%
+  mutate(across(
+    c(KOFTrGIdf, 
+      KOFPoGIdj, 
+      KOFCuGIdf, 
+      KOFIpGIdf), 
+      ~ ifelse(month == 12, .x, NA)
+  )) %>% 
+  mutate(year=year+1) %>% #lagging
+  mutate(across(c
+                (KOFTrGIdf, 
+                  KOFPoGIdj, 
+                  KOFCuGIdf, 
+                  KOFIpGIdf),
+                ~ .x / 100))  #need to make the percentages back to regular numbers 
+view(kof_global) 
+
+base_data <- base_data %>%
+  left_join(kof_global %>%
+              select(
+                     year, 
+                     month, 
+                     country
+                     ), 
+            by = c("country", "year", "month")) #merging to base data 
+view(base_data) 
+
+
+
+
+
+
 
