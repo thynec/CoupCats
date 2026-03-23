@@ -390,58 +390,80 @@ rm(base_data_prop, sorted_base_data)
 
 
 
-#------------------------------------------------------------------------------------------------#
-#num of leaders over last 5 and 10 years, archigos 
-#------------------------------------------------------------------------------------------------#  
-archigos <- read_dta("archigosleaderdata.dta")
+#---------------------------------------------------------------------------------------------#
+#   Number of leaders over 5 and 10 years, Proportion of leaders in past 5 years with milit background (Reign)
+#---------------------------------------------------------------------------------------------#
 
-# make start and end dates 'date' types
-leaders <- archigos %>% 
-  mutate(startdate = as.Date(startdate),
-         enddate = as.Date(enddate)) %>%
-  select(leader, ccode, startdate, enddate)
-rm(archigos)
+# import data and convert to data table
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/leaderlist_2026_02_10.csv"
+leader_data <- as.data.table(
+  read_csv(url)
+)
+
+# Sort + create dates
+setorder(leader_data, ccode, syear, smonth, sdate)
+leader_data[, sdate := as.integer(sdate)]
+leader_data[, `:=`(
+  sdate_full = make_date(syear, smonth, sdate)
+)]
+
+leader_data[, sdate_full := make_date(syear, smonth, sdate)]
+leader_data[, edate_full := shift(sdate_full, type = "lead"), by = ccode]
+leader_data[is.na(edate_full), edate_full := as.Date("2100-01-01")]  # current leaders with na end dates set to future so they are included
+ 
+# make base data a data table and fix month/year issue
+setDT(base_data)
+setnames(base_data, c("year", "month"), c("Year", "Month"))
+base_data[, date := make_date(Year, Month, 1)]
+
+# Create windows
+base_data[, `:=`(
+  window5   = date %m-% years(5),
+  window10  = date %m-% years(10),
+  windowEnd = date %m-% months(1)
+)]
+
+# Set keys for fast joins
+setkey(leader_data, ccode, sdate_full, edate_full)
+setkey(base_data, ccode)
+
+# ---- 5-year window ----
+leaders_5yr <- leader_data[
+  base_data,
+  on = .(ccode,
+         sdate_full <= windowEnd,   # include leaders who started before the window ends
+         edate_full >= window5),    # and who ended after the window begins
+  allow.cartesian = TRUE,
+  .(numleaders_5yr = uniqueN(leader),
+    prop_milit_career = {
+      unique_leaders <- unique(.SD[, .(leader, militarycareer)])
+      mean(unique_leaders$militarycareer == 1, na.rm = TRUE)
+    },
+    date = i.date),  
+  by = .EACHI
+]
+
+# ---- 10-year window ----
+leaders_10yr <- leader_data[
+  base_data,
+  on = .(ccode,
+         sdate_full <= windowEnd,
+         edate_full >= window10),
+  allow.cartesian = TRUE,
+  .(numleaders_10yr = uniqueN(leader),
+    date = i.date),
+  by = .EACHI
+]
+
+# Merge results back
+both_leader <- leaders_5yr[leaders_10yr, on = .(ccode, date)]
+base_data <- base_data[both_leader, on = .(ccode, date)]
 
 
-# add date to base_data
-base_data <- base_data %>%
-  mutate(date = as.Date(paste(year, month, "01", sep = "-")))
-
-base_data <- base_data %>%
-  mutate(
-    numleaders_5yr = pmap_dbl(
-      .l = list(ccode, date),
-      .f = function(curr_cc, curr_d) {
-        
-        window_start <- curr_d %m-% years(5)
-        window_end   <- curr_d %m-% months(1)  # exclude current month
-        
-        leaders %>%
-          filter(ccode == curr_cc,
-                 startdate <= window_end,
-                 enddate   >= window_start) %>%
-          pull(leader) %>%
-          n_distinct()
-      }
-    ),
-    numleaders_10yr = pmap_dbl(
-      .l = list(ccode, date),
-      .f = function(curr_cc, curr_d) {
-        
-        window_start <- curr_d %m-% years(10)
-        window_end   <- curr_d %m-% months(1)  # exclude current month
-        
-        leaders %>%
-          filter(ccode == curr_cc,
-                 startdate <= window_end,
-                 enddate   >= window_start) %>%
-          pull(leader) %>%
-          n_distinct()
-      }
-    )
-  )
-
-rm(leaders)
+# Clean up
+rm(leader_data, both_leader, leaders_10yr, leaders_5yr)
+base_data <- base_data %>% select(-date, -window5, -window10, -windowEnd, -edate_full, -i.edate_full, -sdate_full, -i.sdate_full)
+setnames(base_data, c("Year", "Month"), c("year", "month"))
 
 
 
