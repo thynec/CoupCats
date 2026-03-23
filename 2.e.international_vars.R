@@ -17,6 +17,50 @@ setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_resea
 #5. build baseline
 source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
 
+
+#------------------------------------------------------------------------------------------------#
+# tourism; number of arrivals from World Bank Group; https://api.worldbank.org/v2/en/indicator/ST.INT.ARVL?downloadformat=excel
+#------------------------------------------------------------------------------------------------#  
+
+# bring in datasets; Number of Arrivals 
+url <- "https://api.worldbank.org/v2/en/indicator/ST.INT.ARVL?downloadformat=excel"
+destfile <- "ST_INT.xls"
+curl::curl_download(url, destfile)
+arrivals_per_year <- read_excel(destfile, skip = 2)
+rm(url, destfile)
+
+# clean data
+arrivals_per_year <- arrivals_per_year %>%
+  rename("country" = "Country Name") %>% #rename variable names
+  select(-"Country Code", -"Indicator Name", -"Indicator Code") %>% #select relevant data
+  pivot_longer(
+    cols = -c(country),
+    names_to = "year",
+    values_to = "arrivals"
+  ) %>% #pivot so years and arrivals are in columns
+  mutate(year = as.integer(year)) %>% #convert year to integer 
+  mutate(year=year+1) %>%
+  mutate(arrivals = as.integer(arrivals)) #convert arrivals to integer
+
+# merge in ccodes 
+arrivals_per_year <- arrivals_per_year %>%
+  mutate(country=ifelse(country=="Turkiye", "Turkey", country)) %>%
+  left_join(ccodes, by = c("country", "year")) 
+
+check <- arrivals_per_year %>%
+  filter(is.na(ccode)) %>%
+  select(-year, -arrivals) %>%
+  distinct() #looks good after fixing Turkey above
+rm(check)
+arrivals_per_year <- arrivals_per_year %>%
+  drop_na(ccode) %>% # drop rows that do not have a set country code 
+  select("ccode", "year", "arrivals") # remove country names
+
+# merge into base_data
+base_data <- base_data %>%
+  left_join(arrivals_per_year, by = c("ccode", "year"))
+
+
 #------------------------------------------------------------------------------------------------#
 #add cold war dummy
 #------------------------------------------------------------------------------------------------#  
@@ -50,10 +94,6 @@ pres <- pres %>%
   mutate(month=as.numeric(month))
 pres <- pres %>%
   left_join(ccodes, by=c("country", "year"))
-check <- pres %>%
-  filter(is.na(ccode)) 
-table(check$country) #need to fix several...
-rm(check)
 pres <- pres %>%
   mutate(ccode=ifelse(country=="China, People’s Republic of", 710, ccode)) %>%
   mutate(ccode=ifelse(country=="Republic of China", 710, ccode)) %>%
@@ -113,15 +153,9 @@ ccodes2 <- ccodes %>%
 df <- df %>%
   left_join(ccodes2, by=c("country"))
 rm(ccodes2)
-check <- df %>%
-  filter(is.na(ccode))
-table(check$country) #add Turkey=ccode=640
+#add Turkey=ccode=640
 df <- df %>%
   mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
-check <- df %>%
-  filter(is.na(ccode))
-table(check$country) #all good
-rm(check)
 df <- df %>%
   select(-country) %>%
   distinct()
@@ -145,10 +179,6 @@ df <- df %>%
   select(-wdi_region)
 base <- base_data %>%
   left_join(df, by=c("ccode"))
-check <- base %>%
-  filter(is.na(MENA))
-table(check$country) #got problems; WDI not recognizing old names; easy to fix manually
-rm(check)
 #fix missing
 base <- base %>%
   mutate(euro_cent_asia=ifelse(country=="Czech Republic", 1, euro_cent_asia)) %>%
@@ -161,16 +191,6 @@ base <- base %>%
   mutate(Sub_africa=ifelse(country=="Zanzibar", 1, Sub_africa)) %>%
   mutate(MENA=ifelse(country=="Yemen Arab Republic", 1, MENA)) %>%
   mutate(MENA=ifelse(country=="Yemen People's Republic", 1, MENA))
-check <- base %>%
-  filter(is.na(e_asia_pacific)) %>%
-  filter(is.na(MENA)) %>%
-  filter(is.na(euro_cent_asia)) %>%
-  filter(is.na(LA_carrib)) %>%
-  filter(is.na(N_america)) %>%
-  filter(is.na(S_asia)) %>%
-  filter(is.na(Sub_africa))
-table(check$country) #looks good
-rm(check)
 base <- base %>%
   mutate(across(everything(), ~ replace_na(.x, 0)))
 base_data <- base
@@ -188,15 +208,9 @@ cow <- read_csv("data/COW_Trade_4.0/National_COW_4.0.csv")
 unlink("data.zip")
 unlink("data", recursive=TRUE)
 rm(url)
-check <- cow %>%
-  select(ccode, year) %>%
-  distinct() #no duplicates
-rm(check)
 
 cow <- cow %>%
   mutate(year=year+1) %>% #just lagged
-  mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
-  mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
   mutate(trade=(imports+exports)) %>%
   mutate(ltrade=log(trade+1)) %>%
   select(ccode, statename, year, trade, ltrade)
@@ -207,16 +221,9 @@ yearly <- base_data %>%
   select(country, ccode, year) %>%
   distinct() %>%
   arrange(ccode, year)
-check <- yearly %>%
-  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0))
-summary(check) #good; no duplicates
-rm(check)
 yearly <- yearly %>%
   left_join(cow, by=c("ccode", "year"))
-check <- yearly %>%
-  filter(country!=statename)
-table(check$country) #looks good
-rm(check, cow)
+rm(cow)
 yearly <- yearly %>%
   select(-statename)
 ch <- yearly %>%
@@ -271,10 +278,6 @@ ch <- wdi %>%
 rm(ch)
 wdi <- wdi %>%
   left_join(ccodes, by=c("country", "year"))
-check <- wdi %>%
-  filter(is.na(ccode))
-table(check$country)
-rm(check)
 wdi <- wdi %>%
   mutate(ccode=ifelse(country=="Turkiye", 640, ccode)) %>%
   rename(wdi_country=country) %>%
@@ -287,17 +290,9 @@ ch <- wdi %>%
 rm(ch)
 yearly <- yearly %>%
   left_join(wdi, by=c("ccode", "year"))
-check <- yearly %>%
-  filter(is.na(ccode)) #good
-check <- yearly %>%
-  filter(country!=wdi_country) %>%
-  relocate(wdi_country) %>%
-  arrange(ccode, year) %>%
-  mutate(drop=ifelse(ccode==lag(ccode), 1, 0)) %>%
-  filter(is.na(drop)) #looks fine
 yearly <- yearly %>%
   select(-wdi_country)
-rm(check, wdi)
+rm(wdi)
 ch <- yearly %>%
   select(ccode, year) %>%
   distinct() #looks good
@@ -317,12 +312,7 @@ exports <- exports %>%
   rename(country=Country) %>% 
   mutate(year=as.numeric(year)) %>%
   mutate(exports=as.numeric(exports)) %>%
-  mutate(year=year+1) %>%
-  filter(!is.na(exports))
-check <- exports %>%
-  select(country, year) %>%
-  distinct() #good
-rm(check)
+  mutate(year=year+1) 
 exports <- exports %>%
   left_join(ccodes, by=c("country", "year")) %>%
   arrange(ccode, year, -exports) %>%
@@ -343,12 +333,7 @@ imports <- imports %>%
   rename(country=Country) %>% 
   mutate(year=as.numeric(year)) %>%
   mutate(imports=as.numeric(imports)) %>%
-  mutate(year=year+1) %>%
-  filter(!is.na(imports))
-check <- imports %>%
-  select(country, year) %>%
-  distinct() #good
-rm(check)
+  mutate(year=year+1) 
 imports <- imports %>%
   left_join(ccodes, by=c("country", "year")) %>%
   arrange(ccode, year, -imports) %>%
@@ -358,14 +343,6 @@ imports <- imports %>%
 
 usitc <- exports %>% 
   full_join(imports, by=c("ccode", "year"))
-check <- usitc %>%
-  select(ccode, year) %>%
-  distinct() #good
-rm(check)
-check <- usitc %>%
-  arrange(ccode, year) %>%
-  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
-rm(check)
 usitc <- usitc %>%
   mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
   mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
@@ -378,33 +355,14 @@ usitc <- usitc %>%
   mutate(ccode=ifelse(country=="São Tomé and Príncipe", 403, ccode)) %>%
   mutate(ccode=ifelse(country=="Czechia (Czech Republic)", 316, ccode)) %>%
   mutate(ccode=ifelse(country=="Eswatini (Swaziland)", 572, ccode))
-check <- usitc %>%
-  filter(is.na(ccode))
-table(check$country) #looks good
-rm(check)
 usitc <- usitc %>%
   filter(!is.na(ccode))
-check <- usitc %>%
-  arrange(ccode, year) %>%
-  mutate(prob=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
-rm(check)
-check <- usitc %>%
-  select(ccode, year) %>%
-  distinct() #looks good
-rm(check)
 usitc <- usitc %>%
   select(-country)
 
 yearly <- yearly %>%
   left_join(usitc, by=c("ccode", "year"))
 rm(usitc, exports, imports)
-
-check <- yearly %>%
-  select(ccode, year) %>%
-  distinct() #looks good
-check <- yearly %>%
-  mutate(prob=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) #looks good
-rm(check)
 
 cor(yearly$ldtrade, yearly$usitc_ldtrade, use="complete.obs")
 cor(yearly$dtrade, yearly$usitc_dtrade, use="complete.obs")
@@ -426,10 +384,6 @@ mon <- yearly %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice))
 mon <- mon %>%
-  group_by(ccode) %>%
-  filter(any(!is.na(splice))) %>%
-  mutate(splice=na.approx(splice, year, rule=2, na.rm=TRUE)) %>%
-  ungroup() %>%
   select(ccode, year, ltrade=splice)
 
 #splice dyadic
@@ -456,25 +410,60 @@ yearly <- yearly %>%
   left_join(dy, by=c("ccode", "year"))
 base_data <- base_data %>%
   left_join(yearly, by=c("ccode", "year"))
-check <- base_data %>%
-  select(ccode, year, month) %>%
-  distinct() #looks good
-rm(check, dy, mon, yearly)
+rm(dy, mon, yearly)
 
 #------------------------------------------------------------------------------------------------#
 # Add regional contagion. 
 #------------------------------------------------------------------------------------------------#  
 
-# Bringing in border states. 
-border_states <- create_dyadyears() %>%
-  add_contiguity() %>%
-  filter(year >= 1950) %>%
-  filter(conttype %in% c(1, 2)) # Land borders and very close maritime borders. 
-border_states <- border_states %>%
-  rename(ccode = ccode1,
-         neighbor = ccode2,
-         border_type = conttype) # Where ccode is primary state, neighbor is coup-victim. 
+# Bring in COW direct contiguity 
+url <- "https://correlatesofwar.org/wp-content/uploads/DirectContiguity320.zip"
+download.file(url, "DirectContiguity320.zip")
+unzip("DirectContiguity320.zip", exdir="DirectContiguity320")
+unlink("DirectContiguity320.zip")
+border <- read_csv("DirectContiguity320/DirectContiguity320/contdir.csv")
+unlink("data", recursive=TRUE)
+rm(url)  
 
+#Clean COW contiguity
+border <- border %>%
+  select(-dyad, -statelab, -statehab, -notes, -version) %>%
+  rename(ccode = statelno, #primary state
+         neighbor = statehno, #state bordering primary state
+         border_type = conttype)
+#raw data in form of dyads; creating two way relationships
+border_reversed <- border %>%
+  select(ccode, neighbor, border_type, begin, end) %>%
+  rename(
+    ccode_old = ccode,
+    neighbor_old = neighbor
+  ) %>%
+  mutate(
+    ccode = neighbor_old,
+    neighbor = ccode_old
+  ) %>%
+  select(ccode, neighbor, border_type, begin, end)
+border <- bind_rows(border, border_reversed) %>%
+  distinct() 
+rm(border_reversed)
+
+#expand to monthly
+border <- border %>%
+  mutate(
+    start_id = (begin %/% 100) * 12 + (begin %% 100) - 1,
+    end_id  = (end   %/% 100) * 12 + (end   %% 100) - 1,
+    n_months = end_id - start_id + 1
+  )
+border_expanded <- border %>%
+  uncount(n_months, .id = "month_offset") %>%
+  mutate(
+    month_id = start_id + month_offset - 1,
+    year = month_id %/% 12,
+    month = month_id %% 12 + 1
+  ) %>%
+  select(ccode, neighbor, border_type, year, month) %>%
+  filter(year >= 1950) 
+rm(border)
 
 # Bringing in coup data.
 coup_data <- read_delim("http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coups_final.txt", 
@@ -491,28 +480,73 @@ coup_data <- coup_data %>%
          coup_successful = ifelse(is.na(coup_successful) & year >= 1950, 0, as.numeric(coup_successful)),
          coup_failed = ifelse(is.na(coup_failed) & year >= 1950, 0, as.numeric(coup_failed)))
 
-# Merging data sets. 
-regional_contagion <- border_states %>% 
-  left_join(coup_data, by = c("year", "neighbor" = "ccode"), relationship = "many-to-many") %>%
-  select(-country) %>%
-  mutate(neighbor = labelled(neighbor, label = "coup states")) %>%
-  drop_na()
-rm(coup_data, border_states)
+#Data about border relations until 2016. Assuming border relations stay the same post last update, changing end date to current end of data, March 2026
+dyads_to_extend <- border_expanded %>%
+  group_by(ccode, neighbor, border_type) %>%
+  summarise(
+    last_date = max(year * 100 + month),
+    .groups = "drop"
+  ) %>%
+  filter(last_date == 201612)
+extensions <- dyads_to_extend %>%
+  crossing(
+    year  = rep(2017:2026, each = 12),
+    month = rep(1:12, times = 9)
+  ) %>%
+  filter(!(year == 2026 & month > 3))
+border_expanded <- bind_rows(border_expanded, extensions) %>%
+  arrange(ccode, neighbor, border_type, year, month) %>%
+  select(-last_date)
+rm(dyads_to_extend, extensions)
 
-# Mutating regional contagion. 
-regional_contagion <- regional_contagion %>%
-  mutate(neighboring_coup = case_when(coup_attempt == 1 ~ 1, TRUE ~ 0), relationship = "many-to-many") %>%
-  select(ccode, month, year, neighbor, neighboring_coup)
+#merging in coup data
+regional_contagion <- border_expanded %>% 
+  left_join(coup_data, by = c("year","month", "neighbor" = "ccode"), relationship = "many-to-many") %>%
+  select(-country)
+rm(border_expanded, coup_data)
 
-#create dummy=1 if any neighbor had a coup
+#creating contagion variables
 regional_contagion <- regional_contagion %>%
-  select(-neighbor) %>%
-  distinct()
+  mutate(neighboring_coup_attempt = case_when(coup_attempt == 1 ~ 1, TRUE ~ 0)) %>%
+  mutate(neighboring_coup = case_when(coup_successful == 1 ~ 1, TRUE ~ 0)) %>%
+  select(-border_type, -coup, -coup_successful, -coup_failed, -coup_attempt)
+regional_contagion <- regional_contagion %>%
+  group_by(ccode, year, month) %>%
+  summarise(
+    neighboring_coup = as.numeric(any(neighboring_coup == 1)),
+    neighboring_coup_attempt = as.numeric(any(neighboring_coup_attempt == 1)),
+    .groups = "drop"
+  )
+
+#Creating last 5 years congation
+regional_contagion <- regional_contagion %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(
+    cum_coup = cumsum(neighboring_coup),
+    coup_last_5yrs = ifelse(
+      lag(cum_coup, 1, default = 0) - lag(cum_coup, 60, default = 0) > 0,
+      1, 0
+    )
+  ) %>%
+  select(-cum_coup) %>%
+  ungroup()
+regional_contagion <- regional_contagion %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(
+    cum_coup = cumsum(neighboring_coup_attempt),
+    coup_attempt_last_5yrs = ifelse(
+      lag(cum_coup, 1, default = 0) - lag(cum_coup, 60, default = 0) > 0,
+      1, 0
+    )
+  ) %>%
+  select(-cum_coup) %>%
+  ungroup()
 
 # Merging into base data. 
 base_data <- base_data %>%
-  left_join(regional_contagion, by = c("year", "month", "ccode")) %>%
-  mutate(neighboring_coup = replace_na(neighboring_coup, 0))
+  left_join(regional_contagion, by = c("year", "month", "ccode"))
 
 #------------------------------------------------------------------------------------------------#
 # International Governmental Organizations(IGO)
@@ -820,4 +854,54 @@ base_data <- base_data %>%
   dplyr::select(-country.y) %>%  # Drop duplicate
   dplyr::rename(country = country.x) #renaming
 rm(iw_data)
+
+#-----------------------------------------------------------------# 
+#KOF Globalization 
+#-----------------------------------------------------------------#
+
+library(readr)
+
+kof_global <- read_csv("https://github.com/catalinahix06-star/CoupCats/raw/refs/heads/main/KOFGI_2025_public(Sheet1).csv")
+
+
+kof_global <- kof_global %>%
+  select(KOFTrGIdf, #trade globalization, de facto
+         KOFPoGIdj, #political globalization, de jure
+         KOFCuGIdf, #gender parity 
+         KOFIpGIdf, #interpersonal globalization de facto
+         country, 
+         year) %>%
+  mutate(month = list(1:12)) %>%  #expand to monthly 
+  unnest(month) %>%
+  mutate(across(
+    c(KOFTrGIdf, 
+      KOFPoGIdj, 
+      KOFCuGIdf, 
+      KOFIpGIdf), 
+      ~ ifelse(month == 12, .x, NA)
+  )) %>% 
+  mutate(year=year+1) %>% #lagging
+  mutate(across(c
+                (KOFTrGIdf, 
+                  KOFPoGIdj, 
+                  KOFCuGIdf, 
+                  KOFIpGIdf),
+                ~ .x / 100))  #need to make the percentages back to regular numbers 
+view(kof_global) 
+
+base_data <- base_data %>%
+  left_join(kof_global %>%
+              select(
+                     year, 
+                     month, 
+                     country
+                     ), 
+            by = c("country", "year", "month")) #merging to base data 
+view(base_data) 
+
+
+
+
+
+
 

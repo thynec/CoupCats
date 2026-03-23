@@ -104,7 +104,8 @@ regime_type <- vdem %>%
   subset(select = c(country, year, regime)) %>%
   rename(regime_type = regime) %>%
   mutate(year=year+1) %>% #just lagged
-  filter(year >= 1950)
+  filter(year >= 1950,
+         year < 2025)
 regime_type <- regime_type %>% 
   left_join(ccodes, by = c("country", "year")) %>% # NAs resulting from state-like actors, not full states.  
   subset(select = -c(country))   %>% # To prevent future duplicated columns. 
@@ -147,12 +148,6 @@ base_data <- base_data %>%
   left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
 rm(regime_type)    
 
-#investigate missing data
-check <- base_data %>%
-  filter(is.na(closed_autocracy))
-table(check$country) #looks good; most recent data through 2025
-rm(check)
-
 #------------------------------------------------------------------------------------------------#
 #Regime type (v2x_polyarchy); from Vdem
 #------------------------------------------------------------------------------------------------#  
@@ -182,12 +177,6 @@ base_data <- base_data %>%
   left_join(vdem_regime2, by = c("ccode", "year")) 
 rm(vdem, vdem_regime2)
 
-#check missing
-check <- base_data %>%
-  filter(is.na(polyarchy2))
-table(check$country) #looks good; up to most recent month
-rm(check)
-
 #------------------------------------------------------------------------------------------------#
 #military regime; take from vdem
 #------------------------------------------------------------------------------------------------#      
@@ -201,36 +190,18 @@ milit <- vdem_og %>%
 milit <- milit %>% 
   filter(year>1945) %>%
   left_join(ccodes, by = c("country", "year")) 
-check <- milit %>%
-  filter(is.na(ccode)) %>%
-  select(-year) %>%
-  distinct()
-table(check$country) #we're good
-rm(check)
 milit <- milit %>%
   select(-country)
 base_data <- base_data %>%
   left_join(milit, by=c("ccode", "year"))
-check <- base_data %>%
-  filter(is.na(milit)) %>%
-  select(country, ccode, year, milit) %>%
-  distinct()
-table(check$country) #probably good, but also might want to double check: Belize, Czechoslovakia, Bosnia and Herzegovina, United Arab Emirates, LIbya, Slovakia, Yemen Arab Republic, Bangladesh, Cameroon, German Federal Replublic, South Sudan.  Feels like a lot but just missing 1 year (12 months) on almost all of these, so probably just fine.
+#also might want to double check: Belize, Czechoslovakia, Bosnia and Herzegovina, United Arab Emirates, LIbya, Slovakia, Yemen Arab Republic, Bangladesh, Cameroon, German Federal Replublic, South Sudan.  Feels like a lot but just missing 1 year (12 months) on almost all of these, so probably just fine.
 base_data <- base_data %>%
   rename(milit_dimension=milit)
-rm(check, milit, vdem_og)
-
-#check missing
-check <- base_data %>%
-  filter(is.na(milit_dimension))
-table(check$country) #need to fill down for 2025 months for all countries; assume regime type continues from last AY
+rm(milit, vdem_og)
 base_data <- base_data %>%
   ungroup() %>%
   group_by(ccode) %>%
   fill(milit_dimension, .direction="down")
-check <- base_data %>%
-  filter(is.na(milit_dimension))
-table(check$country) #looks good
 
 #------------------------------------------------------------------------------------------------#
 #elections; from Vdem
@@ -253,7 +224,7 @@ df <- df_og %>%
     country_name, year, historical_date, 
     v2eltype_0, v2eltype_1, v2eltype_2, v2eltype_3, v2eltype_4, v2eltype_5, v2eltype_6, v2eltype_7, v2eltype_8, v2eltype_9)
 df <- df %>%
-  filter(!is.na(v2eltype_0)) %>%
+  filter(!is.na(v2eltype_0)) %>% # removing non-election data
   mutate(election=1) %>%
   mutate(legis_elec=ifelse(v2eltype_0==1 | v2eltype_1==1 | v2eltype_2==1 | v2eltype_3==1, 1, 0)) %>%
   mutate(pres_elec=ifelse(v2eltype_6==1 | v2eltype_7==1, 1, 0)) 
@@ -262,10 +233,6 @@ df <- df %>%
   mutate(month=month(historical_date)) %>%
   select(country=country_name, year, month, election, legis_elec, pres_elec) %>%
   left_join(ccodes, by=c("country", "year"))
-check <- df %>%
-  filter(is.na(ccode))
-table(check$country) #we're fine
-rm(check)
 #collapse so we don't have duplicate ccode/year/months; then merge; one at a time
 df2 <- df %>%
   group_by(ccode, year, month) %>%
@@ -341,19 +308,6 @@ milreg <- read_csv("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads
 milreg <- milreg %>%
   rename(country_milreg=country) 
 
-check <- milreg %>%
-  arrange(ccode, year, month) %>%
-  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year) & month==lag(month), 1, NA))
-table(check$problem)
-#have 124 cases of 2+ coding in same month; see if they're all milreg...
-check <- milreg %>%
-  arrange(ccode, year, month) %>%
-  select(-reign_type) %>%
-  distinct() %>%
-  arrange(ccode, year, month) %>%
-  mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year) & month==lag(month), 1, NA))
-table(check$problem) # that fixed it
-rm(check)
 milreg <- milreg %>% 
   select(-reign_type) %>%
   distinct()
@@ -361,12 +315,7 @@ milreg <- milreg %>%
 base_data <- base_data %>%
   left_join(milreg, by=c("ccode", "year", "month")) %>%
   mutate(milreg=ifelse(is.na(milreg), 0, milreg)) 
-check <- base_data %>%
-  mutate(problem=ifelse(country!=country_milreg, 1, NA)) %>%
-  filter(problem==1) %>%
-  select(country, country_milreg) %>%
-  distinct() #all good with ccodes matching
-rm(check, milreg)
+rm(milreg)
 base_data <- base_data %>%
   set_variable_labels(milreg="milreg from reign; powell updates") %>%
   select(-country_milreg)
@@ -409,20 +358,90 @@ gender_data <- gender_data %>%
   rename(mcountry = country)
 base_data <- base_data %>% 
   left_join(gender_data, by = c("ccode", "year")) 
-check <- base_data %>% 
-  subset(select = c(country, mcountry)) %>%
-  distinct() %>%
-  filter(country!=mcountry)
-rm(check) # All good. 
 base_data <- base_data %>%
   subset(select = -c(mcountry))
 rm(gender_data) 
 
-#checked missing behind the scenes; we're good
+
+
+#------------------------------------------------------------------------------------------------#
+# military regime proportion over last 15 years; from milreg
+#------------------------------------------------------------------------------------------------# 
+sorted_base_data <- base_data %>%
+  arrange(country, year, month)
+
+base_data_prop <- sorted_base_data %>%
+  mutate(
+    milreg_prop = rollapplyr(
+      milreg, 
+      width = 180, 
+      FUN = function(x) mean(x==1, na.rm = TRUE), 
+      fill = NA, 
+      align = "right")
+  )
+base_data_prop <- base_data_prop %>%
+  select(ccode, year, month, milreg_prop)
+
+base_data <- left_join(base_data, base_data_prop,
+            by = c("ccode", "month", "year"))
+
+rm(base_data_prop, sorted_base_data)
 
 
 
 
+#------------------------------------------------------------------------------------------------#
+#num of leaders over last 5 and 10 years, archigos 
+#------------------------------------------------------------------------------------------------#  
+archigos <- read_dta("archigosleaderdata.dta")
+
+# make start and end dates 'date' types
+leaders <- archigos %>% 
+  mutate(startdate = as.Date(startdate),
+         enddate = as.Date(enddate)) %>%
+  select(leader, ccode, startdate, enddate)
+rm(archigos)
+
+
+# add date to base_data
+base_data <- base_data %>%
+  mutate(date = as.Date(paste(year, month, "01", sep = "-")))
+
+base_data <- base_data %>%
+  mutate(
+    numleaders_5yr = pmap_dbl(
+      .l = list(ccode, date),
+      .f = function(curr_cc, curr_d) {
+        
+        window_start <- curr_d %m-% years(5)
+        window_end   <- curr_d %m-% months(1)  # exclude current month
+        
+        leaders %>%
+          filter(ccode == curr_cc,
+                 startdate <= window_end,
+                 enddate   >= window_start) %>%
+          pull(leader) %>%
+          n_distinct()
+      }
+    ),
+    numleaders_10yr = pmap_dbl(
+      .l = list(ccode, date),
+      .f = function(curr_cc, curr_d) {
+        
+        window_start <- curr_d %m-% years(10)
+        window_end   <- curr_d %m-% months(1)  # exclude current month
+        
+        leaders %>%
+          filter(ccode == curr_cc,
+                 startdate <= window_end,
+                 enddate   >= window_start) %>%
+          pull(leader) %>%
+          n_distinct()
+      }
+    )
+  )
+
+rm(leaders)
 
 
 
@@ -847,3 +866,5 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #emma_data <- emma_data %>% 
 #  left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
 #rm(age_expectancy)  
+
+

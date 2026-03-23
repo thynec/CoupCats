@@ -44,12 +44,7 @@ sipri <- sipri %>%
   rename(sipri_milex=milex) %>%
   mutate(year=year+1) %>%  #just lagged
   left_join(ccodes, by=c("country", "year"))
-check <- sipri %>%
-  filter(is.na(ccode)) %>%
-  select(-year, -sipri_milex) %>%
-  distinct()
-#View(check) #need Congo, DR=490; Congo, Rep=484; Yemen, North=678
-rm(check)
+#need Congo, DR=490; Congo, Rep=484; Yemen, North=678
 sipri <- sipri %>%
   mutate(ccode=ifelse(country=="Congo, DR", 490, ccode)) %>%
   mutate(ccode=ifelse(country=="Congo, Republic", 484, ccode)) %>%
@@ -58,7 +53,6 @@ sipri <- sipri %>%
 sipri <- sipri %>%
   filter(!is.na(sipri_country)) %>%
   filter(!is.na(ccode)) %>%
-  filter(!is.na(sipri_milex)) %>%
   arrange(ccode, year) %>%
   mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, NA)) %>% #We're good
   select(-problem)
@@ -70,17 +64,10 @@ sipri <- sipri %>%
   arrange(ccode, year) %>%
   mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
   mutate(sipri_milex=ifelse(year==2025, NA, sipri_milex)) %>%
-  mutate(sipri_milex = if (sum(!is.na(sipri_milex)) >= 2) na.approx(sipri_milex, year, rule = 2) else sipri_milex) %>%
   ungroup()
 base_data <- base_data %>%
   left_join(sipri, by=c("ccode", "year"))
-check <- base_data %>%
-  select(country, sipri_country) %>%
-  distinct() %>%
-  filter(!is.na(sipri_country)) %>%
-  filter(country!=sipri_country)
-#View(check) #looks good
-rm(check, sipri)
+rm(sipri)
 base_data <- base_data %>%
   select(-sipri_country)
 
@@ -106,34 +93,12 @@ nmc <- nmc %>%
   mutate(year=year+1) %>% #just lagged
   mutate(cow_milex=ifelse(cow_milex<0, NA, cow_milex)) %>%
   mutate(cow_milper=ifelse(cow_milper<0, NA, cow_milper))
-#deal w/ missing
-check <- nmc %>%
-  filter(year>=1949) %>%
-  filter(is.na(cow_milex)) #feels like linear interpolation (but not extrapolation) should be fine for milex
-check <- nmc %>%
-  filter(year>1949) %>%
-  filter(is.na(cow_milper)) #feels like linear interpolation (but not extrapolation) should be fine for milper
-rm(check)
-nmc <- nmc %>%
-  group_by(ccode) %>%
-  filter(year>1949) %>%
-  mutate(cow_milex = if (sum(!is.na(cow_milex)) >= 2) na.approx(cow_milex, year, rule = 1, na.rm=FALSE) else cow_milex) %>%
-  ungroup()
-nmc <- nmc %>%
-  group_by(ccode) %>%
-  filter(year>1949) %>%
-  mutate(cow_milper = if (sum(!is.na(cow_milper)) >= 2) na.approx(cow_milper, year, rule = 1, na.rm=FALSE) else cow_milper) %>%
-  ungroup()
+#feels like linear interpolation (but not extrapolation) should be fine for milex
+#feels like linear interpolation (but not extrapolation) should be fine for milper
 #merge into base
 base_data <- base_data %>%
   left_join(nmc, by=c("ccode", "year"))
-check <- base_data %>%
-  ungroup() %>%
-  select(country, cow_country) %>%
-  distinct() %>%
-  filter(!is.na(cow_country)) %>%
-  filter(country!=cow_country) #looks good
-rm(check, nmc)
+rm(nmc)
 cor.test(base_data$sipri_milex, base_data$cow_milex) #r=.867 so matching up about what we'd expect
 
 #------------------------------------------------------------------------------------------------#
@@ -180,22 +145,13 @@ wdi <- wdi %>%
   rename(wdi_milper = MS.MIL.TOTL.P1) %>%
   mutate(year=year+1) %>% #just lagged
   left_join(ccodes, by=c("country", "year"))
-check <- wdi %>%
-  filter(is.na(ccode)) %>%
-  select(country) %>%
-  distinct() #need to add Turkey = 640; otherwise looks good
+#need to add Turkey = 640; otherwise looks good
 wdi <- wdi %>%
   mutate(ccode=ifelse(country=="Turkiye", 640, ccode)) %>%
   rename(wdi_country=country)
-rm(check)
 base_data <- base_data %>%
   left_join(wdi, by=c("ccode", "year"))
-check <- base_data %>%
-  select(country, wdi_country) %>%
-  filter(!is.na(wdi_country)) %>%
-  distinct() %>%
-  filter(country!=wdi_country) #looks good
-rm(check, wdi)
+rm(wdi)
 base_data <- base_data %>%
   select(-wdi_country)
 
@@ -203,11 +159,6 @@ base_data <- base_data %>%
 df <- base_data %>%
   select(ccode, year, cow_milper, wdi_milper) %>%
   distinct()
-df <- df %>%
-  group_by(ccode) %>%
-  mutate(wdi_milper=if(sum(!is.na(wdi_milper)) >=2) na.approx(wdi_milper, year, rule=1, na.rm=FALSE) else wdi_milper) %>%
-  mutate(wdi_milper=if(sum(!is.na(wdi_milper)) >=2) na.approx(wdi_milper, year, rule=2, na.rm=FALSE) else wdi_milper) %>%
-  ungroup()
 df <- df %>%
   mutate(ch=((wdi_milper-lag(wdi_milper))/lag(wdi_milper))) 
 df <- df %>%
@@ -344,25 +295,14 @@ milex <- milex %>%
   mutate(year=year+1) #lagged
 milex <- milex %>%
   left_join(ccodes, by=c("country", "year"))
-check <- milex %>%
-  filter(is.na(ccode)) %>%
-  select(-year, -milex) %>%
-  distinct()
-#View(check) #need to fix turkey=640
+#need to fix turkey=640
 milex <- milex %>%
   mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
-rm(check)
 milex <- milex %>%
   rename(wdi_country=country)
 base_data <- base_data %>%
   left_join(milex, by=c("ccode", "year"))
 rm(milex)
-check <- base_data %>%
-  select(country, wdi_country) %>%
-  filter(country!=wdi_country) %>%
-  distinct()
-View(check) #looks good
-rm(check)
 
 #------------------------------------------------------------------------------------------------#
 #milper from WB
@@ -394,25 +334,14 @@ milper <- milper %>%
   mutate(year=year+1) #lagged
 milex <- milex %>%
   left_join(ccodes, by=c("country", "year"))
-check <- milex %>%
-  filter(is.na(ccode)) %>%
-  select(-year, -milex) %>%
-  distinct()
-#View(check) #need to fix turkey=640
+#need to fix turkey=640
 milex <- milex %>%
   mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
-rm(check)
 milex <- milex %>%
   rename(wdi_country=country)
 base_data <- base_data %>%
   left_join(milex, by=c("ccode", "year"))
 rm(milex)
-check <- base_data %>%
-  select(country, wdi_country) %>%
-  filter(country!=wdi_country) %>%
-  distinct()
-#View(check) #looks good
-rm(check)
 
 
 
@@ -423,5 +352,3 @@ rm(check)
 #------------------------------------------------------------------------------------------------#  
 #milex, milper info from peacesciencer
 #------------------------------------------------------------------------------------------------#  
-
-
