@@ -436,6 +436,47 @@ base_data <- base_data %>%
   left_join(world_bank, by = c("ccode", "year"))
 rm(world_bank)
 
+#-------------------------------------------------------------------------------------#
+#   Bringing in ECI 
+#-------------------------------------------------------------------------------------#
+#"Growth Lab and Complexity Rankings" 
+
+
+eci_data <- read.csv("https://raw.githubusercontent.com/catalinahix06-star/CoupCats/refs/heads/main/growth_proj_eci_rankings.csv")
+
+install.packages("countrycode")
+library(countrycode) 
+
+eci_data2 <- eci_data %>%
+  mutate(country = countrycode(country_iso3_code,
+                               origin = "iso3c",
+                               destination = "country.name"))
+
+eci_data2b <- eci_data2 %>% #main dataset to use
+  select(
+    country, 
+    eci_hs92, #economic complexity number
+    eci_rank_hs92,  #ranking 
+    year) %>%
+  mutate(year=year+1) %>% #lagging 
+  mutate(month = list(1:12)) %>% #expand to monthly 
+  unnest(month)%>% 
+  mutate(across(
+    c(eci_hs92, 
+      eci_rank_hs92), 
+    ~ifelse(month == 12, .x, NA)
+  )) 
+
+base_data <- base_data %>% #merging base data with eci data 
+  left_join(eci_data2b %>%
+              select(country, 
+                     year, 
+                     month), 
+            by = c("country", 
+                   "year", 
+                   "month"))  
+view(base_data) 
+
 
 
 
