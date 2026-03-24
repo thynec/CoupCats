@@ -18,54 +18,12 @@ setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_resea
 #4. load libraries
 source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
 #------------------------------------------------------------------------------------------------#
-#merge DFs together
+#pull in data after missing data fill
 #------------------------------------------------------------------------------------------------#
 
-#2.a.domestic political
-url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.a.base_data.csv.gz"
-base_data.2a <- fread(url)
+url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/reg_base_data.csv.gz"
+base_data <- fread(url)
 rm(url)
-#2.b.domestic economic
-url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.b.base_data.csv.gz"
-base_data.2b <- fread(url)
-rm(url)
-#2.c.political instability
-url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.c.base_data.csv.gz"
-base_data.2c <- fread(url)
-rm(url)
-#2.d.military variables
-url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.d.base_data.csv.gz"
-base_data.2d <- fread(url)
-rm(url)
-#2.e.international variables
-url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.e.base_data.csv.gz"
-base_data.2e <- fread(url)
-rm(url)
-
-base_data <- base_data.2a
-rm(base_data.2a)
-base_data.2b <- base_data.2b %>%
-  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
-base_data <- base_data %>%
-  left_join(base_data.2b, by=c("ccode", "year", "month"))
-rm(base_data.2b)
-base_data.2c <- base_data.2c %>%
-  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
-base_data <- base_data %>%
-  left_join(base_data.2c, by=c("ccode", "year", "month"))
-rm(base_data.2c)    
-base_data.2d <- base_data.2d %>%
-  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
-base_data <- base_data %>%
-  left_join(base_data.2d, by=c("ccode", "year", "month"))
-rm(base_data.2d)    
-base_data.2e <- base_data.2e %>%
-  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
-base_data <- base_data %>%
-  left_join(base_data.2e, by=c("ccode", "year", "month"))
-rm(base_data.2e)
-
-write.csv(base_data, "base_data.csv", row.names = FALSE)
 
 #------------------------------------------------------------------------------------------------#  
 #Baseline model
