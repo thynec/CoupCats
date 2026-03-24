@@ -33,17 +33,17 @@ base_data <- base_data %>%
   left_join(base_data.2b, by=c("ccode", "year", "month"))
 rm(base_data.2b)
 base_data.2c <- base_data.2c %>%
-  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2c, by=c("ccode", "year", "month"))
 rm(base_data.2c)    
 base_data.2d <- base_data.2d %>%
-  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2d, by=c("ccode", "year", "month"))
 rm(base_data.2d)    
 base_data.2e <- base_data.2e %>%
-  dplyr::select(-country, -coup_attempt, -coup_successful, -coup_failed, -pce, -pce2, -pce3)
+  dplyr::select(-country.x, -coup_attempt, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2e, by=c("ccode", "year", "month"))
 rm(base_data.2e)
