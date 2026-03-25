@@ -537,6 +537,25 @@ FP_CPI <- FP_CPI %>%
   mutate(Year=Year+1) %>% #Lag CPI
   rename(year = Year) %>%
   rename(country = `Country Name`) %>% 
+  mutate(country = case_when(
+    country == "Germany"                          ~ "German Federal Republic",
+    country == "Korea, Rep."                      ~ "South Korea",
+    country == "Korea, Dem. People's Rep."        ~ "North Korea",
+    country == "Yemen, Rep."                      ~ "Yemen Arab Republic",
+    country == "Yemen, PDR"                       ~ "Yemen People's Republic",
+    country == "Viet Nam"                         ~ "Vietnam",
+    country == "Turkiye"                          ~ "Turkey",
+    country == "Eswatini"                         ~ "Swaziland",
+    country == "Congo, Dem. Rep."                 ~ "Democratic Republic of the Congo",
+    country == "Congo, Rep."                      ~ "Congo",
+    country == "Micronesia, Fed. Sts."            ~ "Federated States of Micronesia",
+    country == "São Tomé and Príncipe"            ~ "Sao Tome and Principe",
+    TRUE                                          ~ country
+  )) %>%
+  mutate(country = case_when(
+    country == "German Federal Republic" & year > 1990 ~ "Germany",
+    TRUE ~ country
+  )) %>%
   left_join(ccodes, by = c("year", "country")) %>% #merging in ccodes
   filter(!is.na(ccode))
 FP_CPI <- FP_CPI %>% 
