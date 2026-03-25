@@ -343,9 +343,31 @@ base_data <- base_data %>%
   left_join(milex, by=c("ccode", "year"))
 rm(milex)
 
+#------------------------------------------------------------------------------------------------#  
+#mutiny data from Powell and Johnson
+#------------------------------------------------------------------------------------------------#  
 
+temp <- tempfile(fileext = ".xlsx")
+download.file("https://jaclynjohnson.weebly.com/uploads/2/6/4/7/26479187/mmdd.xlsx", 
+              destfile = temp, mode = "wb")
+mutiny_johnson <- read_excel(temp)
+rm(temp)
+mutiny_johnson <- mutiny_johnson %>%
+  filter(region != "4") #remove African countries from this dataset to bring in more accurate data
+mutiny_johnson <- mutiny_johnson %>%
+  arrange(`Event date`)
+mutiny_johnson <- mutiny_johnson %>%
+  select('Country', 'ccode', 'month', 'day', 'year')
 
+mutiny_africa <- read.csv("https://docs.google.com/spreadsheets/d/1HYbOOfWSMDfhyz3jGAq9Bg8pNeH-z6aB/export?format=csv&gid=963832040")
+mutiny_africa <- mutiny_africa %>%
+  select('cname', 'ccode', 'year', 'month', 'edate')
+mutiny_africa$edate <- day(mdy(mutiny_africa$edate))
+mutiny_africa <- mutiny_africa %>%
+  rename(Country = cname) %>%
+  rename(day = edate)
 
+mutiny <- bind_rows(mutiny_johnson, mutiny_africa)
 
 
 
