@@ -40,6 +40,30 @@ stability <- stability %>%
 stability <- stability %>%
   mutate(year=year+1) #just lagged
 
+#1.25 Recode World Bank names to ccodes
+stability <- stability %>%
+  mutate(country = case_when(
+    country == "Germany"                          ~ "German Federal Republic",  # WB uses unified Germany throughout; split needed pre-1990
+    country == "Korea, Rep."                      ~ "South Korea",
+    country == "Korea, Dem. People's Rep."        ~ "North Korea",
+    country == "Yemen, Rep."                      ~ "Yemen Arab Republic",
+    country == "Yemen, PDR"                       ~ "Yemen People's Republic",
+    country == "Viet Nam"                         ~ "Vietnam",
+    country == "Turkiye"                          ~ "Turkey",
+    country == "Eswatini"                         ~ "Swaziland",
+    country == "Congo, Dem. Rep."                 ~ "Democratic Republic of the Congo",
+    country == "Congo, Rep."                      ~ "Congo",
+    country == "Micronesia, Fed. Sts."            ~ "Federated States of Micronesia",
+    country == "St. Kitts and Nevis"              ~ "St. Kitts and Nevis",
+    country == "São Tomé and Príncipe"            ~ "Sao Tome and Principe",
+    TRUE                                          ~ country
+  )) %>%
+    # West Germany only exists pre-1991 — post-1990 "Germany" rows stay as unified Germany
+    mutate(country = case_when(
+      country == "German Federal Republic" & year > 1990 ~ "Germany",
+      TRUE ~ country
+    ))
+
 #1.3 Merging to base_data
 stability <- stability %>%
   left_join(ccodes, by=c("country", "year")) 
@@ -91,7 +115,16 @@ vdem_data <- vdem %>%
          mobilization = v2cagenmob,
          mobil_conc = v2caconmob) %>% 
   mutate(year=year+1) %>% # Just lagged. 
-  filter(year >= 1950) 
+  filter(year >= 1950) %>%
+  mutate(country = case_when(
+    country == "Republic of Vietnam"              ~ "Republic of Vietnam",   
+    country == "German Federal Republic"          ~ "German Federal Republic",
+    country == "German Democratic Republic"       ~ "German Democratic Republic",
+    country == "Yemen Arab Republic"              ~ "Yemen Arab Republic",
+    country == "Yemen People's Republic"          ~ "Yemen People's Republic",
+    country == "Czechoslovakia"                   ~ "Czechoslovakia",
+    TRUE                                          ~ country
+  )) 
 vdem_data <- vdem_data %>% # Merging in ccodes. 
   left_join(ccodes, by = c("year", "country")) 
 check <- vdem_data %>%
