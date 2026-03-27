@@ -9,7 +9,7 @@ rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
 #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -58,11 +58,11 @@ stability <- stability %>%
     country == "São Tomé and Príncipe"            ~ "Sao Tome and Principe",
     TRUE                                          ~ country
   )) %>%
-    # West Germany only exists pre-1991 — post-1990 "Germany" rows stay as unified Germany
-    mutate(country = case_when(
-      country == "German Federal Republic" & year > 1990 ~ "Germany",
-      TRUE ~ country
-    ))
+  # West Germany only exists pre-1991 — post-1990 "Germany" rows stay as unified Germany
+  mutate(country = case_when(
+    country == "German Federal Republic" & year > 1990 ~ "Germany",
+    TRUE ~ country
+  ))
 
 #1.3 Merging to base_data
 stability <- stability %>%
@@ -317,31 +317,92 @@ mid <- read_excel("data/Dyadic_v25_1.xlsx")
 unlink("data", recursive=TRUE)
 rm(url)  
 
-df <- mid %>%
+primary <- mid %>%
   filter(type_of_conflict==2) %>%
-  select(start=start_date2, gwno_a, gwno_b, )
+  select(year, gwno_a, gwno_b)
 
+primary <- primary %>%
+  select(year, gwno_a, gwno_b) %>%
+  mutate(
+    gwno_a = str_split(as.character(gwno_a), ",\\s*"),
+    gwno_b = str_split(as.character(gwno_b), ",\\s*"),
+    ccode = map2(gwno_a, gwno_b, ~ c(.x, .y))
+  ) %>%
+  select(year, ccode) %>%
+  unnest(ccode) %>%
+  mutate(ccode = as.numeric(str_trim(ccode)),
+         mid = 1) %>%
+  filter(!is.na(ccode)) %>%
+  distinct(ccode, year, .keep_all = TRUE) %>%
+  arrange(ccode, year) %>%
+  mutate(year=year+1) %>%
+  rename(mid_primary=mid) %>%
+  distinct()
 
+base_data <- base_data %>%
+  left_join(primary, by = c("ccode", "year")) %>%
+  group_by(ccode) %>%
+  mutate(
+    mid25 = dplyr::coalesce(
+      dplyr::first(mid_primary[year == 2025]),
+      NA_real_
+    ),
+    mid_primary = if_else(year == 2026 & is.na(mid_primary), mid25, mid_primary),
+    mid_primary = coalesce(mid_primary, 0)
+  ) %>%
+  ungroup() %>%
+  select(-mid25) %>%
+  set_variable_labels(mid_primary="interstate dispute, primary only, ucdp, t-1")
+rm(primary)
 
+second <- mid %>%
+  filter(type_of_conflict==2) %>%
+  select(year, gwno_a_2nd, gwno_b_2nd) %>%
+  mutate(drop=ifelse(is.na(gwno_a_2nd) & is.na(gwno_b_2nd), 1, 0)) %>%
+  filter(drop==0) %>%
+  select(-drop) %>%
+  mutate(
+    gwno_a = str_split(as.character(gwno_a_2nd), ",\\s*"),
+    gwno_b = str_split(as.character(gwno_b_2nd), ",\\s*"),
+    ccode = map2(gwno_a, gwno_b, ~ c(.x, .y))
+  ) %>%
+  select(year, ccode) %>%
+  unnest(ccode) %>%
+  mutate(ccode = as.numeric(str_trim(ccode)),
+         mid = 1) %>%
+  filter(!is.na(ccode)) %>%
+  distinct(ccode, year, .keep_all = TRUE) %>%
+  arrange(ccode, year) %>%
+  mutate(year=year+1) %>%
+  rename(mid_secondary=mid) %>%
+  distinct()
+  
+base_data <- base_data %>%
+  left_join(second, by = c("ccode", "year")) %>%
+  group_by(ccode) %>%
+  mutate(
+    mid25 = dplyr::coalesce(
+      dplyr::first(mid_secondary[year == 2025]),
+      NA_real_
+    ),
+    mid_secondary = if_else(year == 2026 & is.na(mid_secondary), mid25, mid_secondary),
+    mid_secondary = coalesce(mid_secondary, 0)
+  ) %>%
+  ungroup() %>%
+  select(-mid25) %>%
+  set_variable_labels(mid_secondary="interstate dispute, secondary only, ucdp, t-1")
+rm(second, mid)
 
-
-
-https://ucdp.uu.se/downloads/dyadic/ucdp-dyadic-251-rds.zip
-
-
-
-https://ucdp.uu.se/downloads/#dyadic
-
-
-
-
-
+base_data <- base_data %>%
+  mutate(mid=ifelse(mid_primary==1 | mid_secondary==1, 1, 0)) %>%
+  select(-mid_secondary) %>%
+  set_variable_labels(mid = "mid primary or secondary, ucdp, t-1")
 
 #------------------------------------------------------------------------------------------------#
 #civil conflict severity (battle-related deaths) from UCDP; https://ucdp.uu.se/downloads/
 #------------------------------------------------------------------------------------------------#  
-
-#bring in data
+  
+  #bring in data
 url <- "https://ucdp.uu.se/downloads/brd/ucdp-brd-conf-251-xlsx.zip"
 download.file(url, "data.zip")
 unzip("data.zip", exdir="data")
@@ -380,38 +441,9 @@ base_data <- base_data %>%
   mutate(brd=ifelse(is.na(brd) & year>=1989 & year<=2025, 0, brd)) %>%
   set_variable_labels(brd="battle-related deaths, types 3-4, UCDP, t-1")
 
-
-
-
-
-
-
-
-
-
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
 write.csv(base_data, gzfile("2.c.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
