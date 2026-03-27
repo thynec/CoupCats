@@ -261,6 +261,12 @@ base_data <- base_data %>%
   set_variable_labels(hc_OG = "human cap index, original, Penn, t-1") %>%
   set_variable_labels(hc = "human cap index, interpolated")
 
+#create % change in GDP/cap
+base_data <- base_data %>%
+  group_by(ccode) %>%
+  mutate(ch_gdppc=(gdppc-lag(gdppc)/lag(gdppc))) %>%
+  set_variable_labels(ch_gdppc = "% ch in ln GDP/cap")
+
 #------------------------------------------------------------------------------------------------#      
 # VARIABLES PULLED FROM WORLD BANK: RESOURCE RENTS, DEBT, TOURISM, GINI
 #looking at data, removed tourism - just not enough data
