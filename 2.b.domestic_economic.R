@@ -8,8 +8,8 @@
 rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
-#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
+setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #Clay at home
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
 #setwd("~/Desktop/TEK 300") #Leah
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
@@ -278,7 +278,7 @@ wb <- WDI(country = "all",
                                 "DT.TDS.DECT.GN.ZS", "ST.INT.RCPT.CD", "ST.INT.XPND.CD", 
                                 "SI.POV.GINI"),
                   start = 1960,
-                  end = 2025,
+                  end = 2026,
                   extra = TRUE)
 
 # Cleaning up data. 
@@ -502,8 +502,9 @@ base_data <- base_data %>%
   mutate(gini=ifelse(gini > 3.438, 3.438, gini))
   
 base_data <- base_data %>%
-  relocate(country, ccode, year, month, coup_attempt, gdppc, hc, oda, nr_rents, debt, gini)
-summary(base_data)
+  relocate(country, ccode, year, month, coup_attempt, pce, pce2, pce3, gdppc, hc, oda, nr_rents, debt, gini) %>%
+  select(-time_id)
+rm(lin_extrap)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
