@@ -28,7 +28,7 @@ rm(url)
 base_data <- base_data.2a
 rm(base_data.2a)
 base_data.2b <- base_data.2b %>%
-  dplyr::select(-country, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2b, by=c("ccode", "year", "month"))
 rm(base_data.2b)
@@ -43,7 +43,7 @@ base_data <- base_data %>%
   left_join(base_data.2d, by=c("ccode", "year", "month"))
 rm(base_data.2d)    
 base_data.2e <- base_data.2e %>%
-  dplyr::select(-country.x, -coup_attempt, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -pce, -pce2, -pce3)
 base_data <- base_data %>%
   left_join(base_data.2e, by=c("ccode", "year", "month"))
 rm(base_data.2e)
@@ -61,6 +61,8 @@ base_data %>%
 # 12 instances of duplicates in base data. removed them below
 base_data <- base_data %>%
   distinct(country, ccode, year, month, .keep_all = TRUE)
+
+#note that as of 03/28/26, above doesn't do anything because I cleaned stuff up. Going to leave it here because it doesn't hurt anything to have it just in case.
 
 #------------------------------------------------------------------------------------------------#
 #Begin filling N/As
@@ -108,48 +110,50 @@ base_data %>%
 
 #------------------------------------------------------------------------------------------------#
 #Filling N/As for Region
+#as of 03/28/26, this isn't necessary because I fixed those; going to just put a hashtag in front of these to avoid errors...
 #------------------------------------------------------------------------------------------------#
 
-base_data %>%
-  filter(is.na(region)) %>%
-  count(country, sort = TRUE)
-
-# filling countries that have a couple N/As for region but is otherwise complete
-base_data <- base_data %>%
-  group_by(country) %>%
-  mutate(region = ifelse(
-    is.na(region),
-    first(region[!is.na(region)]),
-    region
-  )) %>%
-  ungroup()
-
-#filling remaining region N/As based on v-dem classification where the original data was pulled
-base_data <- base_data %>%
-  mutate(region = case_when(
-    
-    country %in% c("Czechoslovakia",
-                   "German Federal Republic") ~ 1,
-    
-    country %in% c("Bahamas", "Grenada", "Dominica",
-                   "St. Lucia", "St. Vincent and the Grenadines",
-                   "Antigua & Barbuda", "Belize",
-                   "St. Kitts and Nevis") ~ 2,
-    
-    country == "Yemen Arab Republic" ~ 3,
-    
-    country %in% c("Liechtenstein", "San Marino",
-                   "Andorra", "Monaco") ~ 5,
-    
-    country %in% c("Samoa", "Brunei",
-                   "Federated States of Micronesia",
-                   "Marshall Islands", "Palau",
-                   "Kiribati", "Nauru",
-                   "Tonga", "Tuvalu") ~ 6,
-    
-    TRUE ~ region   # keep existing values
-  ))
-
+#base_data %>%
+  #  filter(is.na(region)) %>%
+  #  count(country, sort = TRUE)
+  #
+  ## filling countries that have a couple N/As for region but is otherwise complete
+  #base_data <- base_data %>%
+  #  group_by(country) %>%
+  #  mutate(region = ifelse(
+  #    is.na(region),
+  #    first(region[!is.na(region)]),
+  #    region
+  #  )) %>%
+  #  ungroup()
+  #
+  ##filling remaining region N/As based on v-dem classification where the original data was pulled
+  #base_data <- base_data %>%
+  #  mutate(region = case_when(
+  #    
+  #    country %in% c("Czechoslovakia",
+  #                   "German Federal Republic") ~ 1,
+  #    
+  #    country %in% c("Bahamas", "Grenada", "Dominica",
+  #                   "St. Lucia", "St. Vincent and the Grenadines",
+  #                   "Antigua & Barbuda", "Belize",
+  #                   "St. Kitts and Nevis") ~ 2,
+  #    
+  #    country == "Yemen Arab Republic" ~ 3,
+  #    
+  #    country %in% c("Liechtenstein", "San Marino",
+  #                   "Andorra", "Monaco") ~ 5,
+  #    
+  #    country %in% c("Samoa", "Brunei",
+  #                   "Federated States of Micronesia",
+  #                   "Marshall Islands", "Palau",
+  #                   "Kiribati", "Nauru",
+  #                   "Tonga", "Tuvalu") ~ 6,
+  #    
+  #    TRUE ~ region   # keep existing values
+  #  ))
+  ##
+  
 #------------------------------------------------------------------------------------------------#
 #Filling leader_duration
 #------------------------------------------------------------------------------------------------#
@@ -237,3 +241,4 @@ base_data <- base_data %>%
   ungroup()
 
 #Remaining N/As are due to either no data for country or no data before first known leader
+rm(list=setdiff(ls(), "base_data"))
