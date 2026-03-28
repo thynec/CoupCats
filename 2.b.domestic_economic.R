@@ -264,7 +264,7 @@ base_data <- base_data %>%
 #create % change in GDP/cap
 base_data <- base_data %>%
   group_by(ccode) %>%
-  mutate(ch_gdppc=(gdppc-lag(gdppc)/lag(gdppc))) %>%
+  mutate(ch_gdppc=((gdppc-lag(gdppc))/lag(gdppc))) %>%
   set_variable_labels(ch_gdppc = "% ch in ln GDP/cap")
 
 #------------------------------------------------------------------------------------------------#      
