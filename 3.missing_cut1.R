@@ -25,7 +25,7 @@ url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.e.base_data.csv
 base_data.2e <- fread(url)
 rm(url)
 
-base_data <- base_data %>%
+base_data <- base_data.2a %>%
 mutate(country=1,
        coup_attempt=1,
        coup_successful=1,
