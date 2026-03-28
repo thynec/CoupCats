@@ -8,8 +8,8 @@
 rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
-#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
+setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #Clay at home
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -234,9 +234,10 @@ base_data <- base_data %>%
     )
   ) %>%
   ungroup() %>%
-  select(-time_id)
+  select(-time_id) %>%
+  mutate(milper_spliced=log10(milper_spliced+1))
 base_data <- base_data %>%
-  mutate(solqual=log(milex_spliced/(milper_spliced+1))+1)
+  mutate(solqual=(milex_spliced/(milper_spliced+1)))
 
 #------------------------------------------------------------------------------------------------#  
 #mutiny data from Powell and Johnson
