@@ -9,21 +9,20 @@
 rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
-#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #Clay at home
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
 #setwd("C:/Users/jsequ/OneDrive - University of Kentucky/[01] University/[03] Junior Year/[02] Spring Semester 25/TEK") #Jose
 
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
-source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") 
+
 #------------------------------------------------------------------------------------------------#
 #pull in data after missing data fill
 #------------------------------------------------------------------------------------------------#
 
-url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/reg_base_data.csv.gz"
-base_data <- fread(url)
-rm(url)
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/3.missing_cut1.R")
 
 #------------------------------------------------------------------------------------------------#  
 #Baseline model
@@ -55,13 +54,13 @@ coup_logit <- feglm(coup_attempt ~
 summary(coup_logit)
 
 coup_OLS <- lm(coup_attempt ~  
-                      Military_regime + Democracy_level + Democracy_squared + Women_political_participation + Leader_duration +   #2.a. domestic political
-                      GDP_per_cap + Change_GDP_per_cap +  #2.b. domestic economic
-                      Civil_wars + Protests + #2.c. political instability
-                      Military_influence +  #2.d. military vars
-                      Trade + Cold_war + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
-                      pce + pce2 + pce3, #autocorrelation vars, 
-                    data = base_data)
+                 Military_regime + Democracy_level + Democracy_squared + Women_political_participation + Leader_duration +   #2.a. domestic political
+                 GDP_per_cap + Change_GDP_per_cap +  #2.b. domestic economic
+                 Civil_wars + Protests + #2.c. political instability
+                 Military_influence +  #2.d. military vars
+                 Trade + Cold_war + e_asia_pacific + LA_carrib + MENA + N_america + S_asia + Sub_africa + #intl vars
+                 pce + pce2 + pce3, #autocorrelation vars, 
+               data = base_data)
 
 ols_standard <- lm.beta(coup_OLS)
 
@@ -511,7 +510,7 @@ bptest(OLS_coup)
 
 #-----------------Brier and AUC for Logit--------------------#
 logLik_coup_logit <- logLik(coup_logit)  #I got, -2557.772 (df=22) 
-                          
+
 # --------------------------- Model developing --------------------------- #
 
 # Define transformations
@@ -779,7 +778,7 @@ rm(cutoff, folds, i, k_folds, oversample_factor, predicted_classes, predicted_pr
 rm(coup_countries, non_coup_data, testing, training, balanced_data, model, conf_matrix, other_countries, model_data)
 
 #---------------------------------------------------------------------------------#
-                              #multicollinearity
+#multicollinearity
 #---------------------------------------------------------------------------------#
 numeric_base_data <- base_data %>%
   select(where(is.numeric))
@@ -834,4 +833,3 @@ cor_vif_match <- cor_matrix %>%
     var2_high_vif = var2 %in% vif_values_df$variable
   ) %>%
   filter(var1_high_vif | var2_high_vif)
-
