@@ -176,13 +176,14 @@ vdem_regime2 <- vdem %>%
     polyarchy="v2x_polyarchy, vdem, t-1",
     polyarchy2="v2x_polyarchy^2, vdem, t-1")
 
-#Expand to create year=2025; assume it's the same as 2024
+#Expand to create year=2026; assume it's the same as 2025
 vdem_regime2 <- vdem_regime2 %>%
   mutate(expand=ifelse(year==2025, 2, 1)) %>%
   expandRows("expand", drop=FALSE) %>%
   arrange(ccode, year) %>%
   mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
   select(-expand) %>%
+  arrange(ccode, year) %>%
   mutate(month=12)
 
 #merge to baseline
@@ -226,6 +227,7 @@ base_data <- base_data %>%
   arrange(ccode, year, month) %>%
   group_by(ccode, year) %>%
   fill(milit, .direction="updown")
+rm(milit)
 
 #------------------------------------------------------------------------------------------------#
 #elections; from Vdem
@@ -334,6 +336,7 @@ milreg <- milreg %>%
 
 milreg <- milreg %>% 
   select(-reign_type) %>%
+  mutate(year=year+1) %>% #just lagged
   distinct()
 
 base_data <- base_data %>%
@@ -369,28 +372,36 @@ gender_data <- gender_data %>%
   left_join(ccodes, by = c("year", "country")) %>%
   filter(!is.na(ccode)) # Non-state actors. 
 
-#Expand to create year=2025; assume it's the same as 2024
+#Expand to create year=2026; assume it's the same as 2025
 gender_data <- gender_data %>%
-  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  mutate(expand=ifelse(year==2025, 2, 1)) %>%
   expandRows("expand", drop=FALSE) %>%
   arrange(ccode, year) %>%
-  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
+  mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
   select(-expand)
 
 # Merging data. 
 gender_data <- gender_data %>% 
-  rename(mcountry = country)
+  select(-country) %>% 
+  mutate(month=12)
 base_data <- base_data %>% 
-  left_join(gender_data, by = c("ccode", "year")) 
-base_data <- base_data %>%
-  subset(select = -c(mcountry))
+  left_join(gender_data, by = c("ccode", "year", "month")) %>%
+  mutate(wom_polpart_OG=wom_polpart) %>%
+  mutate(women_polemp_OG=women_polemp) %>%
+  mutate(wom_civlib_OG=wom_civlib) %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(time_id = year + (month - 1) / 12) %>%
+  mutate(wom_polpart=na.approx(wom_polpart, x=time_id, na.rm=FALSE, rule=2)) %>%
+  mutate(women_polemp=na.approx(women_polemp, x=time_id, na.rm=FALSE, rule=2)) %>%
+  mutate(wom_civlib=na.approx(wom_civlib, x=time_id, na.rm=FALSE, rule=2)) %>%
+  select(-time_id)
 rm(gender_data) 
-
-
 
 #------------------------------------------------------------------------------------------------#
 # military regime proportion over last 15 years; from milreg
 #------------------------------------------------------------------------------------------------# 
+
 sorted_base_data <- base_data %>%
   arrange(country, year, month)
 
@@ -408,11 +419,7 @@ base_data_prop <- base_data_prop %>%
 
 base_data <- left_join(base_data, base_data_prop,
                        by = c("ccode", "month", "year"))
-
 rm(base_data_prop, sorted_base_data)
-
-
-
 
 #---------------------------------------------------------------------------------------------#
 #   Number of leaders over 5 and 10 years, Proportion of leaders in past 5 years with milit background (Reign)
@@ -423,6 +430,7 @@ url <- "https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/leader
 leader_data <- as.data.table(
   read_csv(url)
 )
+rm(url)
 
 # Sort + create dates
 setorder(leader_data, ccode, syear, smonth, sdate)
@@ -483,21 +491,11 @@ leaders_10yr <- leader_data[
 both_leader <- leaders_5yr[leaders_10yr, on = .(ccode, date)]
 base_data <- base_data[both_leader, on = .(ccode, date)]
 
-
 # Clean up
 rm(leader_data, both_leader, leaders_10yr, leaders_5yr)
 base_data <- base_data %>% select(-date, -window5, -window10, -windowEnd, -edate_full, -i.edate_full, -sdate_full, -i.sdate_full)
 setnames(base_data, c("Year", "Month"), c("year", "month"))
-
-
-
-
-
-
-
-
-
-
+rm(vdem_og)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
@@ -728,87 +726,11 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #vdem <- vdem %>% # Merging in ccodes. 
 #  left_join(ccodes, by = c("year", "country")) %>%
 #  filter(!is.na(ccode)) # Non-state actors. 
-#
-## GDPPC (e_gdppc). 
-## Cleaning data. 
-#vdem_gdppc <- vdem %>%
-#  subset(select = c(country, ccode, year, gdppc)) %>%
-#  rename(vdem_gdppc = gdppc,
-#         c_merge = country) 
-#base_data <- base_data %>%
-#  left_join(vdem_gdppc, by = c("ccode", "year"))
-#check <- base_data %>% 
-#  subset(select = c(country, c_merge, year)) %>%
-#  distinct() %>%
-#  filter(country!=c_merge)
-#rm(check) # All good. 
-#base_data <- base_data %>%
-#  subset(select = -c(c_merge))
-#rm(vdem_gdppc)
-#
-## Reading in WDI. 
-#wdi_gdppc <- WDI(country = "all",
-#                 indicator = "NY.GDP.PCAP.CD", 
-#                 start = 1960, 
-#                 end = 2024,
-#                 extra = TRUE)
-#wdi_gdppc <- wdi_gdppc %>%
-#  subset(select = c(country, year, NY.GDP.PCAP.CD)) %>%
-#  rename(wdi_gdppc = NY.GDP.PCAP.CD) %>%
-#  left_join(ccodes, by = c("year", "country")) %>%
-#  rename(c_merge = country)
-#base_data <- base_data %>%
-#  left_join(wdi_gdppc, by = c("ccode", "year")) 
-#check <- base_data %>% 
-#  subset(select = c(country, c_merge)) %>%
-#  distinct() %>%
-#  filter(country!=c_merge)
-#rm(check) # All good. 
-#base_data <- base_data %>%
-#  subset(select = -c(c_merge))
-#rm(wdi_gdppc)
-#
-## 1. Regime type (v2x_polyarchy). 
-#vdem_regime2 <- vdem %>% 
-#  subset(select = c(country, ccode, year, regime2)) %>% 
-#  filter(!(country == "Kazakhstan" & year == 1990)) %>% # Kazakhstan became independent this year.
-#  filter(!(country == "Turkmenistan" & year == 1990)) %>% # Turkmenistan became independent this year. 
-#  subset(select = -c(country))
-#base_data <- base_data %>% 
-#  left_join(vdem_regime2, by = c("ccode", "year")) %>%
-#  filter(!(ccode %in% c(232, 58, 31, 80, 835, 54, 987, 55, 946, 223, 
-#                        983, 221, 970, 986, 60, 56, 57, 990, 331, 955,
-#                        947))) %>%
-#  filter(!(ccode == "471" & year == 1960)) %>% # Cameroon became independent this year. 
-#  filter(!(ccode == "678" & year <= 1991)) %>% # Yemen unified in 1991. 
-#  filter(year < 2024) 
-#base_data <- base_data %>% # Ultimately, we are losing Czechoslovakia and the German Federal Republic. 
-#  filter(!(ccode == "260")) %>%
-#  filter(!(ccode == "315"))
-#rm(vdem_regime2)
-#
-## Interpolating by WDI. 
-#base_data <- base_data %>%
-#  select(country, ccode, year, vdem_gdppc, wdi_gdppc) %>%
-#  distinct() %>%
-#  mutate(change=(wdi_gdppc-lag(wdi_gdppc))) %>%
-#  mutate(now=vdem_gdppc) %>%
-#  mutate(perc_change=change/lag(wdi_gdppc)) %>%
-#  mutate(gdppc=ifelse(is.na(now), lag(now)*perc_change+lag(vdem_gdppc), now)) %>%
-#  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
-#  mutate(gdppc=ifelse(is.na(gdppc), lag(gdppc)*perc_change+lag(gdppc), gdppc)) %>%
-#  subset(select = -c(wdi_gdppc, vdem_gdppc, change, now, perc_change))
-#
-## 2. Regime type (v2x_regime). 
-#vdem_regime <- vdem %>% 
-#  subset(select = c(country, ccode, year, regime)) %>%
-#  filter(!(country == "Kazakhstan" & year == 1990)) %>% 
-#  filter(!(country == "Turkmenistan" & year == 1990)) %>% 
-#  subset(select = -c(country))
-#base_data <- base_data %>% 
-#  left_join(vdem_regime, by = c("ccode", "year")) # No duplicates. 
-#rm(vdem_regime)
-#
+
+
+
+
+
 ## 3. Executive corruption index (v2x_execorr).
 #vdem_execorr <- vdem %>% 
 #  subset(select = c(country, ccode, year, exec_corr)) %>%
