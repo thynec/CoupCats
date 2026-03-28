@@ -105,7 +105,7 @@ regime_type <- vdem %>%
   rename(regime_type = regime) %>%
   mutate(year=year+1) %>% #just lagged
   filter(year >= 1950,
-         year < 2025)
+         year < 2026)
 regime_type <- regime_type %>% 
   left_join(ccodes, by = c("country", "year")) %>% # NAs resulting from state-like actors, not full states.  
   subset(select = -c(country))   %>% # To prevent future duplicated columns. 
@@ -135,18 +135,30 @@ table(regime_type$regime_type, regime_type$liberal_democracy)
 regime_type <- regime_type %>%
   select(-regime_type)
 
-#Expand to create year=2025; assume it's the same as 2024
+#Expand to create year=2026; assume it's the same as 2025
 regime_type <- regime_type %>%
-  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  mutate(expand=ifelse(year==2025, 2, 1)) %>%
   expandRows("expand", drop=FALSE) %>%
   arrange(ccode, year) %>%
-  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
-  select(-expand)
+  mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
+  select(-expand) %>%
+  mutate(month=12)
 
 #Merging into data set. 
 base_data <- base_data %>% 
-  left_join(regime_type, by = c("ccode", "year")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
-rm(regime_type)    
+  left_join(regime_type, by = c("ccode", "year", "month")) # Missing data simply is not updated by V-Dem, so I will not be dropping them. 
+rm(regime_type)
+
+#best option with these regime vars is linear interpolation for missing months (non-Decembers), so do that...
+
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode, year) %>%
+  fill(closed_autocracy, .direction = "updown") %>%
+  fill(electoral_autocracy, .direction = "updown") %>%
+  fill(electoral_democracy, .direction = "updown") %>%
+  fill(liberal_democracy, .direction = "updown") %>%
+  ungroup()
 
 #------------------------------------------------------------------------------------------------#
 #Regime type (v2x_polyarchy); from Vdem
@@ -166,15 +178,21 @@ vdem_regime2 <- vdem %>%
 
 #Expand to create year=2025; assume it's the same as 2024
 vdem_regime2 <- vdem_regime2 %>%
-  mutate(expand=ifelse(year==2024, 2, 1)) %>%
+  mutate(expand=ifelse(year==2025, 2, 1)) %>%
   expandRows("expand", drop=FALSE) %>%
   arrange(ccode, year) %>%
-  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
-  select(-expand)
+  mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
+  select(-expand) %>%
+  mutate(month=12)
 
 #merge to baseline
 base_data <- base_data %>% 
-  left_join(vdem_regime2, by = c("ccode", "year")) 
+  left_join(vdem_regime2, by = c("ccode", "year", "month")) %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode, year) %>%
+  fill(polyarchy, .direction="updown") %>%
+  fill(polyarchy2, .direction="updown") %>%
+  ungroup()
 rm(vdem, vdem_regime2)
 
 #------------------------------------------------------------------------------------------------#
@@ -186,22 +204,28 @@ milit <- vdem_og %>%
   select(country=country_name, year, v2x_ex_military) %>%
   rename(milit=v2x_ex_military) %>%
   mutate(year=year+1) %>% #just lagged
-  set_variable_labels(milit="milit dimension index, vdem, t-1")
-milit <- milit %>% 
   filter(year>1945) %>%
-  left_join(ccodes, by = c("country", "year")) 
+  left_join(ccodes, by = c("country", "year")) %>%
+  set_variable_labels(milit="milit dimension index, vdem, t-1") %>%
+  mutate(expand=ifelse(year==2025, 2, 1)) %>%
+  expandRows("expand", drop=FALSE) %>%
+  arrange(ccode, year) %>%
+  mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
+  select(-expand)
+check <- milit %>%
+  filter(is.na(ccode)) %>%
+  select(country) %>%
+  distinct() #all good
+rm(check)
+
 milit <- milit %>%
-  select(-country)
+  select(-country) %>%
+  mutate(month=12)
 base_data <- base_data %>%
-  left_join(milit, by=c("ccode", "year"))
-#also might want to double check: Belize, Czechoslovakia, Bosnia and Herzegovina, United Arab Emirates, LIbya, Slovakia, Yemen Arab Republic, Bangladesh, Cameroon, German Federal Replublic, South Sudan.  Feels like a lot but just missing 1 year (12 months) on almost all of these, so probably just fine.
-base_data <- base_data %>%
-  rename(milit_dimension=milit)
-rm(milit, vdem_og)
-base_data <- base_data %>%
-  ungroup() %>%
-  group_by(ccode) %>%
-  fill(milit_dimension, .direction="down")
+  left_join(milit, by=c("ccode", "year", "month")) %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode, year) %>%
+  fill(milit, .direction="updown")
 
 #------------------------------------------------------------------------------------------------#
 #elections; from Vdem
@@ -383,7 +407,7 @@ base_data_prop <- base_data_prop %>%
   select(ccode, year, month, milreg_prop)
 
 base_data <- left_join(base_data, base_data_prop,
-            by = c("ccode", "month", "year"))
+                       by = c("ccode", "month", "year"))
 
 rm(base_data_prop, sorted_base_data)
 
@@ -410,7 +434,7 @@ leader_data[, `:=`(
 leader_data[, sdate_full := make_date(syear, smonth, sdate)]
 leader_data[, edate_full := shift(sdate_full, type = "lead"), by = ccode]
 leader_data[is.na(edate_full), edate_full := as.Date("2100-01-01")]  # current leaders with na end dates set to future so they are included
- 
+
 # make base data a data table and fix month/year issue
 setDT(base_data)
 setnames(base_data, c("year", "month"), c("Year", "Month"))
@@ -888,5 +912,4 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #emma_data <- emma_data %>% 
 #  left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
 #rm(age_expectancy)  
-
 
