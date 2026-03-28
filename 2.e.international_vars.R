@@ -9,7 +9,7 @@ rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
 #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -17,6 +17,226 @@ setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_resea
 #5. build baseline
 source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
 
+
+# -------------------------- Int Signals ----------------------------- #
+
+# 1. WEIS DATA
+# 1.1. Getting the data
+url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/weis.fromlai.1966-93.dta" #bringing in the data
+weis <- read_dta(url)
+rm(url)
+
+# 1.2. Cleaning
+weis <- weis %>% 
+  dplyr::select(year,targcc, mo, gscale) %>% #selecting important variables
+  rename(
+    target = targcc,  
+    month = mo   
+  ) %>% 
+  mutate("z_variable" = scale(weis$gscale)) #getting the z score
+
+weis <- weis %>% 
+  dplyr::select(year,target, month, z_variable)
+
+# 2. COPDAB DATA
+# 2.1. Getting the data
+url <- "https://www.uky.edu/~clthyn2/copdab.dta"
+copdab <- read_dta(url(url, "rb"))
+rm(url)
+
+# 2.2. Cleaning and Fixing year
+copdab <- copdab %>% 
+  dplyr::select(year,target, month, value) %>% #selecting important variables
+  filter(target != 4)
+
+copdab <- copdab %>%
+  mutate(year = 1900 + year)
+
+# 2.3. Turning values into something meaningful 
+copdab <- copdab %>%
+  mutate(weight = case_when(
+    value == 15 ~ -102,
+    value == 14 ~ -65,
+    value == 13 ~ -50,
+    value == 12 ~ -44,
+    value == 11 ~ -29,
+    value == 10 ~ -16,
+    value == 9 ~ -6,    # Negative for values from 15 to 9
+    value == 8 ~ 1,
+    value == 7 ~ 6,
+    value == 6 ~ 10,
+    value == 5 ~ 14,
+    value == 4 ~ 27,
+    value == 3 ~ 31,
+    value == 2 ~ 47,
+    value == 1 ~ 92,
+    TRUE ~ NA_real_ # Ensures NA for any value outside the expected range
+  )) %>% 
+  select(-value)
+
+copdab <-  copdab %>% 
+  mutate("z_variable" = scale(copdab$weight))  # getting the z score
+
+copdab <-  copdab %>% 
+  dplyr::select(year,target, month, z_variable)
+
+# 3. Merging both
+int_signals <- weis %>%
+  full_join(copdab, by=c("target", "year", "month", "z_variable"))
+
+int_signals <-int_signals %>% 
+  group_by(year, target, month) %>% 
+  mutate(z= mean(z_variable)) %>%
+  select(-z_variable) %>%
+  arrange(target, year, month) %>%
+  distinct() %>%
+  ungroup() %>%
+  rename(ccode=target)
+#lag by 1 month before merge
+int_signals <- int_signals %>%
+  mutate(
+    date = ymd(paste(year, month, "01")),
+    date = date %m+% months(1),
+    year = year(date),
+    month = month(date)
+)
+
+base_data <- base_data %>% 
+  left_join(int_signals, by = c("ccode", "year", "month")) %>%
+  mutate(z=ifelse(year>=1950 & year<=1992 & is.na(z), 0, z)) %>%
+  select(-date) %>%
+  rename(signal=z) %>%
+  set_variable_labels(signal="copdab+weis, t-1")
+
+rm(copdab, weis, int_signals)
+
+#-----------------------------------------------------------------# 
+#KOF Globalization 
+#-----------------------------------------------------------------#
+
+kof <- read_csv("https://github.com/catalinahix06-star/CoupCats/raw/refs/heads/main/KOFGI_2025_public(Sheet1).csv")
+
+kof <- kof %>%
+  select(KOFTrGIdf, #trade globalization, de facto
+         KOFPoGIdj, #political globalization, de jure
+         KOFCuGIdf, #gender parity 
+         KOFIpGIdf, #interpersonal globalization de facto
+         country,
+         code,
+         year) %>%
+  mutate(month = list(1:12)) %>%  #expand to monthly 
+  unnest(month) %>%
+  mutate(across(
+    c(KOFTrGIdf, 
+      KOFPoGIdj, 
+      KOFCuGIdf, 
+      KOFIpGIdf), 
+    ~ ifelse(month == 12, .x, NA)
+  )) %>% 
+  mutate(year=year+1) %>% #lagging
+  mutate(across(c
+                (KOFTrGIdf, 
+                  KOFPoGIdj, 
+                  KOFCuGIdf, 
+                  KOFIpGIdf),
+                ~ .x / 100))  #need to make the percentages back to regular numbers 
+kof <- kof %>%
+  mutate(country=ifelse(country=="Congo, Rep", "Congo", country)) %>%
+  mutate(country=ifelse(country=="Egypt, Arab Rep", "Egypt", country)) %>%
+  mutate(country=ifelse(country=="Iran, Islamic Rep", "Iran", country)) %>%
+  mutate(country=ifelse(country=="Korea, Rep", "South Korea", country)) %>%
+  mutate(country=ifelse(code=="PRK", "North Korea", country)) %>%
+  mutate(country=ifelse(country=="Yemen, Rep", "Yemen", country)) %>%
+  mutate(country=ifelse(country=="Congo, Dem Rep", "Democratic Republic of Congo", country)) %>%
+  left_join(ccodes, by=c("country", "year"))
+check <- kof %>%
+  filter(is.na(ccode)) %>%
+  select(country) %>%
+  distinct()
+rm(check)
+kof <- kof %>%
+  filter(!is.na(ccode)) %>%
+  select(-code) %>%
+  rename(trade_glob_OG=KOFTrGIdf) %>%
+  rename(pol_glob_OG=KOFPoGIdj) %>%
+  rename(gender_parity_OG=KOFCuGIdf) %>%
+  rename(interpersonal_glob_OG=KOFIpGIdf) %>%
+  set_variable_labels(trade_glob_OG="trade globalization, de facto, t-1, KOF") %>%
+  set_variable_labels(pol_glob_OG="political globalization, de jure, t-1, KOF") %>%
+  set_variable_labels(gender_parity_OG="gender parity, t-1, KOF") %>%
+  set_variable_labels(interpersonal_glob_OG="interpersonal globalization de facto, t-1, KOF") %>%
+  select(-country)
+base_data <- base_data %>%
+  left_join(kof, by = c("ccode", "year", "month"))  %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(time_id = year + (month - 1) / 12) %>%
+  mutate(trade_glob=trade_glob_OG) %>%
+  mutate(trade_glob = if_else(
+    year >= 1971 & (year < 2026 | (year == 2026 & month <= 4)),
+    na.approx(trade_glob, x = time_id, na.rm = FALSE, rule = 2),
+    trade_glob
+  )) %>%
+  mutate(pol_glob=pol_glob_OG) %>%
+  mutate(pol_glob = if_else(
+    year >= 1971 & (year < 2026 | (year == 2026 & month <= 4)),
+    na.approx(pol_glob, x = time_id, na.rm = FALSE, rule = 2),
+    pol_glob
+  )) %>%
+  mutate(gender_parity=gender_parity_OG) %>%
+  mutate(gender_parity = if_else(
+    year >= 1971 & (year < 2026 | (year == 2026 & month <= 4)),
+    na.approx(gender_parity, x = time_id, na.rm = FALSE, rule = 2),
+    gender_parity
+  )) %>%
+  mutate(interpersonal_glob=interpersonal_glob_OG) %>%
+  mutate(interpersonal_glob = if_else(
+    year >= 1971 & (year < 2026 | (year == 2026 & month <= 4)),
+    na.approx(interpersonal_glob, x = time_id, na.rm = FALSE, rule = 2),
+    interpersonal_glob
+  )) 
+
+rm(kof)  
+
+# ------------------- FDI (World Bank) ------------------- #
+# Bring in FDI (World Bank). 
+fdi <- WDI(indicator = "BX.KLT.DINV.CD.WD", start = 1960, end = 2026, extra = TRUE)
+
+# Cleaning up FDI. 
+fdi <- fdi %>% 
+  select(country, year, BX.KLT.DINV.CD.WD) %>%
+  rename(fdi = BX.KLT.DINV.CD.WD) %>%
+  mutate(country=ifelse(country=="Turkiye", "Turkey", country)) %>%
+  mutate(country=ifelse(country=="Somalia, Fed. Rep.", "Somalia", country)) %>%
+  left_join(ccodes, by =  c("country", "year")) 
+check <- fdi %>%
+  filter(is.na(ccode)) %>%
+  select(country) %>% 
+  distinct() #all good
+rm(check)
+fdi <- fdi %>%
+  select(-country) %>%
+  mutate(year=year+1) %>% #just lagged, so we have 1961-2026
+  mutate(month=12) %>%
+  rename(fdi_OG=fdi)
+
+# Merging into base data. 
+base_data <- base_data %>%
+  left_join(fdi, by = c("ccode", "year", "month")) 
+
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(time_id = year + (month - 1) / 12) %>%
+  mutate(fdi=fdi_OG) %>%
+  mutate(fdi = if_else(
+      year >= 1961 & (year < 2026 | (year == 2026 & month <= 4)),
+      na.approx(fdi, x = time_id, na.rm = FALSE, rule = 2),
+      fdi
+    )
+  ) %>%
+  set_variable_labels(fdi="fdi, t-1, linear interpolate")
+rm(fdi)
 
 #------------------------------------------------------------------------------------------------#
 # tourism; number of arrivals from World Bank Group; https://api.worldbank.org/v2/en/indicator/ST.INT.ARVL?downloadformat=excel
@@ -45,6 +265,7 @@ arrivals_per_year <- arrivals_per_year %>%
 # merge in ccodes 
 arrivals_per_year <- arrivals_per_year %>%
   mutate(country=ifelse(country=="Turkiye", "Turkey", country)) %>%
+  mutate(country=ifelse(country=="Somalia, Fed. Rep.", "Somalia", country)) %>%
   left_join(ccodes, by = c("country", "year")) 
 
 check <- arrivals_per_year %>%
@@ -54,12 +275,31 @@ check <- arrivals_per_year %>%
 rm(check)
 arrivals_per_year <- arrivals_per_year %>%
   drop_na(ccode) %>% # drop rows that do not have a set country code 
-  select("ccode", "year", "arrivals") # remove country names
+  select("ccode", "year", "arrivals") %>% # remove country names
+  mutate(month=12)
 
 # merge into base_data
 base_data <- base_data %>%
-  left_join(arrivals_per_year, by = c("ccode", "year"))
+  left_join(arrivals_per_year, by = c("ccode", "year", "month"))
+rm(arrivals_per_year)
 
+#use linear interpolation, 01/1990-04/2026
+base_data <- base_data %>%
+  mutate(arrivals_OG=arrivals) %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(
+    time_id = year + (month - 1) / 12,
+    arrivals = if_else(
+      year >= 1990 & (year < 2026 | (year == 2026 & month <= 4)),
+      na.approx(arrivals, x = time_id, na.rm = FALSE, rule = 2),
+      arrivals
+    )
+  ) %>%
+  mutate(arrivals=log10(arrivals+1)) %>%
+  ungroup() %>%
+  set_variable_labels(arrivals="tourism, log10, t-1, linear inter") %>%
+  select(-time_id)
 
 #------------------------------------------------------------------------------------------------#
 #add cold war dummy
@@ -105,6 +345,8 @@ pres <- pres %>%
   mutate(ccode=ifelse(country=="Macedonia, Former Yugoslav Republic of", 343, ccode)) %>%
   filter(!is.na(ccode)) %>%
   select(-country)
+pres <- pres %>%
+  distinct()
 #merging with base data
 base_data <-  base_data %>%
   left_join(pres, by = c("ccode", "month", "year")) 
@@ -153,10 +395,10 @@ ccodes2 <- ccodes %>%
 df <- df %>%
   left_join(ccodes2, by=c("country"))
 rm(ccodes2)
-#add Turkey=ccode=640
 df <- df %>%
-  mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
-df <- df %>%
+  mutate(ccode=ifelse(country=="Turkiye", 640, ccode)) %>%
+  mutate(ccode=ifelse(country=="Somalia, Fed. Rep.", 520, ccode)) %>%
+  filter(!is.na(ccode)) %>%
   select(-country) %>%
   distinct()
 df <- df %>%
@@ -261,7 +503,7 @@ rm(cow)
 
 #Add WDI; monadic
 indicators <- c("NE.EXP.GNFS.CD", "NE.IMP.GNFS.CD")
-wdi <- WDI(indicator = indicators, start = 1960, end = 2025, extra = TRUE)
+wdi <- WDI(indicator = indicators, start = 1960, end = 2026, extra = TRUE)
 rm(indicators)
 wdi <- wdi %>%
   select(country, year, NE.EXP.GNFS.CD, NE.IMP.GNFS.CD) %>%
@@ -280,6 +522,7 @@ wdi <- wdi %>%
   left_join(ccodes, by=c("country", "year"))
 wdi <- wdi %>%
   mutate(ccode=ifelse(country=="Turkiye", 640, ccode)) %>%
+  mutate(ccode=ifelse(country=="Somalia, Fed. Rep.", 520, ccode)) %>%
   rename(wdi_country=country) %>%
   filter(wdi_trade>0) %>%
   filter(!is.na(ccode)) %>%
@@ -299,7 +542,8 @@ ch <- yearly %>%
 rm(ch)
 
 #add trade w/ US only; from https://dataweb.usitc.gov/; couldn't pull these directly from web so putting them on github
-url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/DataWeb-Query-Export%20(1).xlsx"
+#grabbed updated data on 03/27/26
+url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/updated-DataWeb-Query-Export%20(2).xlsx"
 destfile <- "DataWeb_Query_Export_20_1_.xlsx"
 curl::curl_download(url, destfile)
 exports <- read_excel(destfile, skip = 2, sheet = "FAS Value")
@@ -318,9 +562,9 @@ exports <- exports %>%
   arrange(ccode, year, -exports) %>%
   mutate(problem=ifelse(ccode==lag(ccode) & year==lag(year), 1, 0)) %>%
   filter(problem!=1) %>%
-  select(-problem, -country)
+  select(-problem, -country) 
 
-url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/DataWeb-Query-Export%20(2).xlsx"
+url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/updated_imports_DataWeb-Query-Export%20(2).xlsx"
 destfile <- "DataWeb_Query_Export_20_1_.xlsx"
 curl::curl_download(url, destfile)
 imports <- read_excel(destfile, skip = 2, sheet = "General Customs Value")
@@ -346,8 +590,7 @@ usitc <- exports %>%
 usitc <- usitc %>%
   mutate(exports=ifelse(is.na(exports), 0, exports)) %>%
   mutate(imports=ifelse(is.na(imports), 0, imports)) %>%
-  filter(year<=2025) %>%
-  mutate(usitc_dtrade=imports+exports) %>%
+  filter(year<=2026) %>%  mutate(usitc_dtrade=imports+exports) %>%
   mutate(usitc_ldtrade=log(imports+exports+1)) %>%
   select(-imports, -exports) 
 usitc <- usitc %>%
@@ -382,6 +625,8 @@ mon <- yearly %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice))
 mon <- mon %>%
   select(ccode, year, ltrade=splice)
@@ -403,14 +648,47 @@ dy <- yearly %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
   mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
+  mutate(splice=ifelse(is.na(splice) & ccode==lag(ccode), lag(splice)*ch+lag(splice), splice)) %>%
   select(ccode, year, ldtrade=splice)
 yearly <- yearly %>%
   select(ccode, year) %>%
   left_join(mon, by=c("ccode", "year")) %>%
-  left_join(dy, by=c("ccode", "year"))
+  left_join(dy, by=c("ccode", "year")) %>% 
+  mutate(month=12)
 base_data <- base_data %>%
-  left_join(yearly, by=c("ccode", "year"))
+  left_join(yearly, by=c("ccode", "year", "month"))
 rm(dy, mon, yearly)
+
+#interpolate
+base_data <- base_data %>%
+  mutate(ltrade_OG=ltrade) %>%
+  set_variable_labels(ltrade_OG = "total trade, log10, t-1") %>%
+  mutate(ldtrade_OG=ldtrade) %>%
+  set_variable_labels(ldtrade_OG = "trade w/ US, log10, t-1")
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(
+    time_id = year + (month - 1)/12,
+    ltrade = na.approx(
+      ltrade,
+      x = time_id,
+      na.rm = FALSE,
+      rule = 2
+    )
+  ) %>%
+  mutate(
+    ldtrade = na.approx(
+      ldtrade,
+      x = time_id,
+      na.rm = FALSE,
+      rule = 2
+    )
+  ) %>%
+  ungroup() %>%
+  select(-time_id)
 
 #------------------------------------------------------------------------------------------------#
 # Add regional contagion. 
@@ -493,7 +771,7 @@ extensions <- dyads_to_extend %>%
     year  = rep(2017:2026, each = 12),
     month = rep(1:12, times = 9)
   ) %>%
-  filter(!(year == 2026 & month > 3))
+  filter(!(year == 2026 & month >= 4))
 border_expanded <- bind_rows(border_expanded, extensions) %>%
   arrange(ccode, neighbor, border_type, year, month) %>%
   select(-last_date)
@@ -547,6 +825,7 @@ regional_contagion <- regional_contagion %>%
 # Merging into base data. 
 base_data <- base_data %>%
   left_join(regional_contagion, by = c("year", "month", "ccode"))
+rm(regional_contagion)
 
 #------------------------------------------------------------------------------------------------#
 # International Governmental Organizations(IGO)
@@ -561,7 +840,7 @@ rm(url)
 unlink("igo.zip", recursive = TRUE )
 unlink("igo", recursive = TRUE )
 
-names(igo)
+igo_OG <- igo
 
 # creating dummy variable for states who are full members of any int organization that year
 igo <- igo %>%
@@ -583,63 +862,62 @@ igo <- igo %>%
   mutate(observer = as.integer(if_any(AAAID:Wassen, ~ . == 1)))
 
 igo <- igo %>%
-  dplyr::select(ccode, year, member, associate, observer) #keeping only what we care about
+  dplyr::select(ccode, year, member, associate, observer) %>% #keeping only what we care about
+  filter(year>1949)
+rm(igo, io_counts)
 
-# merging to base data
-base_data <- base_data %>% 
-  left_join(igo, by = c("ccode", "year"))
+# merging to base data; going to omit this one because almost all=1, so not enough variation to matter.  Instead use below...
 
-
-###############################################################################################
-#Checked through above and ready to produce .csv and upload to github
-#clean up if needed and export
-write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
-#Now push push the file that was just written to the working directory to github
-###############################################################################################  
-
-
-
-
-
-
-
-
-
-
-
-
-
-#------------------------------------------------------------------------------------------------#
-#add tourism
-#------------------------------------------------------------------------------------------------#  
-
-#Getting data - Tourism (From World Bank)
-url <- "https://api.worldbank.org/v2/en/indicator/ST.INT.ARVL?downloadformat=excel"
-destfile <- "ST_INT.xls"
-curl::curl_download(url, destfile)
-tourism <- read_excel(destfile, skip = 3)
-# I couldn't find data from before 1995, included this here just in case
-
-#Reshaping data
-tourism <- tourism %>%
-  rename( "country" = `Country Name`) %>% 
-  subset(select = -c(`Indicator Name`, `Indicator Code`, `Country Code`))  #removing things we don't want
-tourism <- tourism %>%
-  pivot_longer(
-    cols = -c(country),  # Keep country-related columns fixed
-    names_to = "year",  
-    values_to = "int_arrivals"
+#create counts of each IO type
+io_counts <- igo_OG %>%
+  mutate(
+    full = rowSums(across(4:537, ~ . == 1), na.rm = TRUE),
+    associate = rowSums(across(4:537, ~ . == 2), na.rm = TRUE),
+    observer = rowSums(across(4:537, ~ . == 3), na.rm = TRUE)
   ) %>%
-  mutate(year = as.integer(year))  # Convert Year to integer
+  select(ccode, year, state, full, associate, observer) %>%
+  filter(year>=1945) %>%
+  mutate(year=year+1) %>%
+  mutate(month=12) %>%
+  select(-state)
 
-#Merging to base
-tourism <- tourism %>%
-  left_join(ccodes, by=c("country", "year"))
-tourism <- tourism %>%
-  mutate(ccode=ifelse(country=="Turkiye", 640, ccode))
+#create a total measure, using full=1, assoc=0.5, observer=0.25
+io_counts <- io_counts %>%
+  mutate(IOs_sum=full+associate*.5+observer*.25) %>%
+  set_variable_labels(IOs_sum="IO count, full=1, assoc=.5, observer=.25")
+
 base_data <- base_data %>%
-  left_join(tourism, by=c("ccode", "year"))
+  left_join(io_counts, by=c("ccode", "year", "month")) %>%
+  mutate(full_OG=full) %>%
+  mutate(associate_OG=associate) %>%
+  mutate(observer_OG=observer) %>%
+  mutate(IOs_sum_OG=IOs_sum) 
 
+base_data <- base_data %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode) %>%
+  mutate(
+    time_id = year + (month - 1)/12,
+    full = na.approx(
+      full,
+      x = time_id,
+      na.rm = FALSE,
+      rule = 2
+    )
+  ) %>%
+  mutate(
+    IOs_sum = na.approx(
+      IOs_sum,
+      x = time_id,
+      na.rm = FALSE,
+      rule = 2
+    )
+  ) %>%
+  ungroup() %>%
+  select(-time_id) %>%
+  set_variable_labels(full="# of IO full memberships, t-1, linear inter") %>%
+  set_variable_labels(full="IO memberships, full=1, assoc=.5, obs=.25, t-1, linear inter")
+rm(igo_OG, io_counts)
 
 #------------------------------------------------------------------------------------------------#
 #alliances
@@ -658,7 +936,7 @@ atop <- atop %>%
   rename(ccode = member) %>% #making life easier
   rowwise() %>%
   mutate(
-    years = list(seq(yrent, ifelse(is.na(yrexit) | yrexit == 0, 2025, yrexit))),
+    years = list(seq(yrent, ifelse(is.na(yrexit) | yrexit == 0, 2026, yrexit))),
     months = list(1:12)
   ) %>%
   unnest(years) %>%
@@ -676,7 +954,14 @@ atop <- atop %>%
   )
 
 atop <- atop %>% 
-  dplyr::select(ccode, year, month, alliance_active, defense_alliance_active)
+  dplyr::select(ccode, year, month, alliance_active, defense_alliance_active) %>%
+  arrange(ccode, year, month) %>%
+  group_by(ccode, year, month) %>%
+  summarise(
+    alliance_active = sum(alliance_active, na.rm = TRUE),
+    defense_alliance_active = sum(defense_alliance_active, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 # Merge atop with base_data
 base_data <- base_data %>%
@@ -686,94 +971,7 @@ base_data <- base_data %>%
     defense_alliance_active = replace_na(defense_alliance_active, 0)
   )
 rm(atop)
-
 #### Important note about alliances data: The ATOP dataset treats alliances that were still valid as of December 31, 2018 (they use yrexit==0), as ongoing. This means that if an alliance ended after 2018, it is still considered ongoing and will be marked as active in the dataset. 
-
-
-
-# -------------------------- Int Signals ----------------------------- #
-
-# 1. WEIS DATA
-# 1.1. Getting the data
-url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/weis.fromlai.1966-93.dta" #bringing in the data
-weis <- read_dta(url)
-rm(url)
-
-# 1.2. Cleaning
-weis <- weis %>% 
-  dplyr::select(year,targcc, mo, gscale) %>% #selecting important variables
-  rename(
-    target = targcc,  
-    month = mo   
-  ) %>% 
-  mutate("z_variable" = scale(weis$gscale)) #getting the z score
-
-weis <- weis %>% 
-  dplyr::select(year,target, month, z_variable)
-
-# 2. COPDAB DATA
-# 2.1. Getting the data
-library(haven) # we needed this for copdab
-url <- "https://www.uky.edu/~clthyn2/copdab.dta"
-copdab <- read_dta(url(url, "rb"))
-rm(url)
-
-# 2.2. Cleaning and Fixing year
-copdab <- copdab %>% 
-  dplyr::select(year,target, month, value) %>% #selecting important variables
-  filter(target != 4)
-
-copdab <- copdab %>%
-  mutate(year = 1900 + year)
-
-# 2.3. Turning values into something meaningful 
-copdab <- copdab %>%
-  mutate(weight = case_when(
-    value == 15 ~ -102,
-    value == 14 ~ -65,
-    value == 13 ~ -50,
-    value == 12 ~ -44,
-    value == 11 ~ -29,
-    value == 10 ~ -16,
-    value == 9 ~ -6,    # Negative for values from 15 to 9
-    value == 8 ~ 1,
-    value == 7 ~ 6,
-    value == 6 ~ 10,
-    value == 5 ~ 14,
-    value == 4 ~ 27,
-    value == 3 ~ 31,
-    value == 2 ~ 47,
-    value == 1 ~ 92,
-    TRUE ~ NA_real_ # Ensures NA for any value outside the expected range
-  )) %>% 
-  select(-value)
-
-copdab <-  copdab %>% 
-  mutate("z_variable" = scale(copdab$weight))  # getting the z score
-
-copdab <-  copdab %>% 
-  dplyr::select(year,target, month, z_variable)
-
-# 3. Merging both
-int_signals <- weis %>%
-  full_join(copdab, by=c("target", "year", "month", "z_variable"))
-
-int_signals <-int_signals %>% 
-  group_by(year, target, month) %>% 
-  mutate(z= mean(z_variable))
-
-int_signals <-int_signals %>% 
-  select(-z_variable)
-
-int_signals <- distinct(int_signals) 
-
-base_data <- base_data %>% 
-  left_join(int_signals, by = c("ccode" = "target", "year" = "year", "month" = "month"))
-
-base_data <- base_data %>% 
-  mutate(z = replace_na(z, 0)) %>%  #turning NAs to zeros
-  rename(int_signal = z) 
-
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
@@ -781,127 +979,3 @@ base_data <- base_data %>%
 write.csv(base_data, gzfile("2.e.base_data.csv.gz"), row.names = FALSE)
 #Now push push the file that was just written to the working directory to github
 ###############################################################################################  
-
-# ------------------- FDI (World Bank) ------------------- #
-# Bring in FDI (World Bank). 
-fdi_data <- WDI(indicator = "BX.KLT.DINV.CD.WD", start = 1960, end = 2024, extra = TRUE)
-
-# Cleaning up FDI. 
-fdi_data <- fdi_data %>% 
-  select(country, year, BX.KLT.DINV.CD.WD) %>%
-  rename(fdi = BX.KLT.DINV.CD.WD) %>%
-  left_join(ccodes, by =  c("country", "year")) %>%
-  select(-country)
-
-# Merging into base data. 
-base_data <- base_data %>%
-  left_join(fdi_data, by = c("ccode", "year"))
-rm(fdi_data)
-
-# ------------------ Interstate War (UCDP) ----------------#
-#getting data from UCDP
-#bring in data
-url <- "https://ucdp.uu.se/downloads/ucdpprio/ucdp-prio-acd-241-xlsx.zip"
-download.file(url, "data.zip")
-unzip("data.zip", exdir="data")
-unlink("data.zip")
-iw_data <- read_excel("data/UcdpPrioConflict_v24_1.xlsx")
-unlink("data", recursive=TRUE)
-rm(url) 
-
-#Cleaning up (only select interstate war)
-iw_data <- iw_data %>%
-  filter(type_of_conflict == 2) %>%
-  dplyr::rename(country = location) %>%
-  separate_rows(country, gwno_loc, sep = ", ") %>%
-  mutate(ep_end_date = coalesce(as.Date(ep_end_date), Sys.Date())) %>%
-  separate(start_date, into = c("start_year", "start_month", "start_day"), sep = "-", convert = TRUE) %>%
-  separate(ep_end_date, into = c("end_year", "end_month", "end_day"), sep = "-", convert = TRUE) %>%
-  dplyr::select(country, start_year, start_month, end_year, end_month) %>%
-  
-  # Create start and end dates as proper Date objects
-  mutate(start_date = make_date(start_year, start_month, 1),
-         end_date = make_date(end_year, end_month, 1)) %>%
-  # Generate a sequence of months between start_date and end_date for each country
-  rowwise() %>%
-  do({
-    data.frame(
-      country = rep(.$country, as.integer(interval(.$start_date, .$end_date) / months(1)) + 1),
-      month_year = seq(.$start_date, .$end_date, by = "month")
-    )
-  }) %>%
-  ungroup() %>%
-  # Add the column for interstate war value 
-  mutate(iw = 1) %>%
-  # Extract the year and month
-  mutate(year = year(month_year), 
-         month = month(month_year)) %>%
-  # Select the relevant columns
-  dplyr::select(country, year, month, iw)
-
-#merge with ccodes
-iw_data <- iw_data %>%
-  left_join(ccodes, by = c("country", "year")) 
-
-#relevant variables
-iw_data <- iw_data %>%
-  dplyr::select(country, year, month, iw, ccode)
-
-#merging with base data
-base_data <- base_data %>%
-  left_join(iw_data, by = c("year","month","ccode")) %>%
-  mutate(iw = ifelse(is.na(iw), 0, iw)) %>%
-  dplyr::select(-country.y) %>%  # Drop duplicate
-  dplyr::rename(country = country.x) #renaming
-rm(iw_data)
-
-#-----------------------------------------------------------------# 
-#KOF Globalization 
-#-----------------------------------------------------------------#
-
-library(readr)
-
-kof_global <- read_csv("https://github.com/catalinahix06-star/CoupCats/raw/refs/heads/main/KOFGI_2025_public(Sheet1).csv")
-
-
-kof_global <- kof_global %>%
-  select(KOFTrGIdf, #trade globalization, de facto
-         KOFPoGIdj, #political globalization, de jure
-         KOFCuGIdf, #gender parity 
-         KOFIpGIdf, #interpersonal globalization de facto
-         country, 
-         year) %>%
-  mutate(month = list(1:12)) %>%  #expand to monthly 
-  unnest(month) %>%
-  mutate(across(
-    c(KOFTrGIdf, 
-      KOFPoGIdj, 
-      KOFCuGIdf, 
-      KOFIpGIdf), 
-      ~ ifelse(month == 12, .x, NA)
-  )) %>% 
-  mutate(year=year+1) %>% #lagging
-  mutate(across(c
-                (KOFTrGIdf, 
-                  KOFPoGIdj, 
-                  KOFCuGIdf, 
-                  KOFIpGIdf),
-                ~ .x / 100))  #need to make the percentages back to regular numbers 
-view(kof_global) 
-
-base_data <- base_data %>%
-  left_join(kof_global %>%
-              select(
-                     year, 
-                     month, 
-                     country
-                     ), 
-            by = c("country", "year", "month")) #merging to base data 
-view(base_data) 
-
-
-
-
-
-
-
