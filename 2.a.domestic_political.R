@@ -496,6 +496,8 @@ rm(leader_data, both_leader, leaders_10yr, leaders_5yr)
 base_data <- base_data %>% select(-date, -window5, -window10, -windowEnd, -edate_full, -i.edate_full, -sdate_full, -i.sdate_full)
 setnames(base_data, c("Year", "Month"), c("year", "month"))
 rm(vdem_og)
+base_data <- base_data %>%
+  select(-region)
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
