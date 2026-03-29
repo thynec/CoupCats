@@ -296,12 +296,13 @@ cw <- cw %>%
   mutate(cw=1) %>%
   set_variable_labels(cw = "ACD CW, t-1") %>%
   select(-month_seq) %>%
-  distinct()
+  distinct() %>%
+  rename(cw_lag=cw)
 
 #merge into base
 base_data <- base_data %>%
   left_join(cw, by=c("ccode", "year", "month")) %>%
-  mutate(cw = ifelse(is.na(cw), 0, cw))
+  mutate(cw_lag = ifelse(is.na(cw_lag), 0, cw_lag))
 rm(cw)
 
 #------------------------------------------------------------------------------------------------#
