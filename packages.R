@@ -17,9 +17,11 @@ devtools::install_github("christophergandrud/pltesim")
 install.packages('readxl')
 install.packages('broom')
 install.packages("R.utils") # helps bring in zipped .csv
-install.packages("data.table") # helps bring in zipped .csv
+install.packages("data.table") # helps bring in zipped .csv / fast data operations
 install.packages("splitstackshape") # allows to expand rows using 'expandRows'
 install.packages("caret")  # Training and evaluating machine learning models
+install.packages("countrycode") # Convert country codes (iso, names, etc.)
+install.packages("stringr") # String manipulation
 
 # Data Visualization
 install.packages("ggplot2") # Primary package for data visualization
@@ -41,7 +43,7 @@ install.packages("olsrr") # Linear regression diagnostics and model selection
 install.packages("lme4") # Linear and generalized linear mixed-effects models
 install.packages("MASS") # Various statistical models and methods
 install.packages("margins") #Used for marginal effects
-install.packages("fixest") #For adding robust SEs
+install.packages("fixest") # Fixed effects models, clustering, AR(1), fast estimation
 
 # Spatial Analysis
 install.packages("sf") # Handle spatial data and analysis
@@ -51,6 +53,8 @@ install.packages("terra") # Work with raster data and spatial analysis
 # Report Generation
 install.packages("rmarkdown") # Dynamic report generation
 install.packages("knitr") # Process and display R code/output in reports
+install.packages("officer") # Create and edit Word documents
+install.packages("flextable") # Format tables for Word/PowerPoint
 
 # Model Diagnostics and Evaluation
 install.packages("performance") # Evaluate model performance and diagnostics
@@ -64,7 +68,7 @@ install.packages("summarytools") # Quick summaries of your data
 install.packages("stargazer") # Creates regression tables
 
 # Data Export and Import
-install.packages("remotes") # #install R packages from GitHub or other sources
+install.packages("remotes") #install R packages from GitHub or other sources
 
 # Miscellaneous Utilities
 install.packages("gapminder") # Global development indicators and example data
@@ -80,8 +84,6 @@ install.packages("vcd") # Visualize categorical data using association plots
 # Data analysis
 install.packages('aod')
 
-
-# Interpolation
-install.packages("zoo")
-install.packages("dplyr")
-
+# Interpolation / Time Series
+install.packages("zoo") # Rolling functions, interpolation
+install.packages("dplyr") # Data manipulation (lead/lag, mutate, etc.)
