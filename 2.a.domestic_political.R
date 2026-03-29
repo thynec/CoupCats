@@ -9,7 +9,7 @@ rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
 #setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
-setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/current_research/coupcats") #clay at work
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
 #4. load libraries
@@ -174,16 +174,7 @@ vdem_regime2 <- vdem %>%
   mutate(polyarchy2=polyarchy*polyarchy) %>%
   set_variable_labels(
     polyarchy="v2x_polyarchy, vdem, t-1",
-    polyarchy2="v2x_polyarchy^2, vdem, t-1")
-
-#Expand to create year=2026; assume it's the same as 2025
-vdem_regime2 <- vdem_regime2 %>%
-  mutate(expand=ifelse(year==2025, 2, 1)) %>%
-  expandRows("expand", drop=FALSE) %>%
-  arrange(ccode, year) %>%
-  mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
-  select(-expand) %>%
-  arrange(ccode, year) %>%
+    polyarchy2="v2x_polyarchy^2, vdem, t-1") %>%
   mutate(month=12)
 
 #merge to baseline
@@ -207,12 +198,7 @@ milit <- vdem_og %>%
   mutate(year=year+1) %>% #just lagged
   filter(year>1945) %>%
   left_join(ccodes, by = c("country", "year")) %>%
-  set_variable_labels(milit="milit dimension index, vdem, t-1") %>%
-  mutate(expand=ifelse(year==2025, 2, 1)) %>%
-  expandRows("expand", drop=FALSE) %>%
-  arrange(ccode, year) %>%
-  mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
-  select(-expand)
+  set_variable_labels(milit="milit dimension index, vdem, t-1") 
 check <- milit %>%
   filter(is.na(ccode)) %>%
   select(country) %>%
@@ -282,6 +268,7 @@ base_data <- base_data %>%
     legis_elec="legis elec, vdem", 
     pres_elec="presidential elec, vdem") %>%
   ungroup()
+
 #set up vars that are 3 months before elections
 base_data <- base_data %>%
   arrange(ccode, year, month) %>%
@@ -371,14 +358,6 @@ gender_data <- vdem %>%
 gender_data <- gender_data %>% 
   left_join(ccodes, by = c("year", "country")) %>%
   filter(!is.na(ccode)) # Non-state actors. 
-
-#Expand to create year=2026; assume it's the same as 2025
-gender_data <- gender_data %>%
-  mutate(expand=ifelse(year==2025, 2, 1)) %>%
-  expandRows("expand", drop=FALSE) %>%
-  arrange(ccode, year) %>%
-  mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
-  select(-expand)
 
 # Merging data. 
 gender_data <- gender_data %>% 
