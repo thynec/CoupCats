@@ -742,7 +742,6 @@ base_data <- base_data %>%
   ) 
 view(base_data) 
 
-
 #------------------------------------------------------------------------------------------------#
 # Add regional contagion. 
 #------------------------------------------------------------------------------------------------#  
@@ -800,16 +799,14 @@ rm(border)
 coup_data <- read_delim("http://www.uky.edu/~clthyn2/coup_data/powell_thyne_coups_final.txt", 
                         delim = "\t", escape_double = FALSE, 
                         trim_ws = TRUE) 
+coup_data <- coup_data %>%
+  mutate(coup=ifelse(ccode==451 & year==1967 & month==3, 2, coup))
 coup_data <- coup_data %>% 
-  mutate(coup = ifelse(ccode == 451 & year == 1967 & month == 3, 2, coup),
-         coup_successful = ifelse(coup == 2, 1, NA),
-         coup_failed = ifelse(coup == 1, 1, NA),
-         coup_attempt = 1) %>%
   select(-ccode_gw, -ccode_polity, -day, -version) %>%
-  distinct() %>% 
-  mutate(coup_attempt = ifelse(is.na(coup_attempt) & year >= 1950, 0, as.numeric(coup_attempt)),
-         coup_successful = ifelse(is.na(coup_successful) & year >= 1950, 0, as.numeric(coup_successful)),
-         coup_failed = ifelse(is.na(coup_failed) & year >= 1950, 0, as.numeric(coup_failed)))
+  distinct() %>% #dropped the obs where 2 coups in same month, as above
+  mutate(coup_attempt = 1) %>%
+  mutate(coup_successful=ifelse(coup==2, 1, 0)) %>%
+  mutate(coup_failed=ifelse(coup==1, 1, 0))
 
 #Data about border relations until 2016. Assuming border relations stay the same post last update, changing end date to current end of data, March 2026
 dyads_to_extend <- border_expanded %>%
@@ -824,7 +821,7 @@ extensions <- dyads_to_extend %>%
     year  = rep(2017:2026, each = 12),
     month = rep(1:12, times = 9)
   ) %>%
-  filter(!(year == 2026 & month >= 4))
+  filter(!(year == 2026 & month >= 5))
 border_expanded <- bind_rows(border_expanded, extensions) %>%
   arrange(ccode, neighbor, border_type, year, month) %>%
   select(-last_date)
@@ -832,15 +829,16 @@ rm(dyads_to_extend, extensions)
 
 #merging in coup data
 regional_contagion <- border_expanded %>% 
-  left_join(coup_data, by = c("year","month", "neighbor" = "ccode"), relationship = "many-to-many") %>%
-  select(-country)
+  left_join(coup_data, by = c("year","month", "neighbor" = "ccode")) %>%
+  select(-country, -coup) %>%
+  mutate(across(where(is.numeric), ~replace_na(., 0)))
 rm(border_expanded, coup_data)
 
 #creating contagion variables
 regional_contagion <- regional_contagion %>%
   mutate(neighboring_coup_attempt = case_when(coup_attempt == 1 ~ 1, TRUE ~ 0)) %>%
   mutate(neighboring_coup = case_when(coup_successful == 1 ~ 1, TRUE ~ 0)) %>%
-  select(-border_type, -coup, -coup_successful, -coup_failed, -coup_attempt)
+  select(-border_type, -coup_successful, -coup_failed, -coup_attempt)
 regional_contagion <- regional_contagion %>%
   group_by(ccode, year, month) %>%
   summarise(
