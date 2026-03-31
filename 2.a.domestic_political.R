@@ -380,11 +380,13 @@ rm(gender_data)
 #------------------------------------------------------------------------------------------------#
 # military regime proportion over last 15 years; from milreg
 #------------------------------------------------------------------------------------------------# 
+#leah - fixed grouping issue by ccode; code produces N/As for years 1950-1965 because it doesn't have a full 15 years to compute proprtion. leaving N/As for now and we can discuss if a fill method should be used
 
 sorted_base_data <- base_data %>%
   arrange(country, year, month)
 
 base_data_prop <- sorted_base_data %>%
+  group_by(ccode) %>%
   mutate(
     milreg_prop = rollapplyr(
       milreg, 
@@ -403,6 +405,7 @@ rm(base_data_prop, sorted_base_data)
 #---------------------------------------------------------------------------------------------#
 #   Number of leaders over 5 and 10 years, Proportion of leaders in past 5 years with milit background (Reign)
 #---------------------------------------------------------------------------------------------#
+#leah- looked good; a few minor changes all runs smooth now
 
 # import data and convert to data table
 url <- "https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/leaderlist_2026_02_10.csv"
@@ -414,13 +417,10 @@ rm(url)
 # Sort + create dates
 setorder(leader_data, ccode, syear, smonth, sdate)
 leader_data[, sdate := as.integer(sdate)]
-leader_data[, `:=`(
-  sdate_full = make_date(syear, smonth, sdate)
-)]
-
 leader_data[, sdate_full := make_date(syear, smonth, sdate)]
 leader_data[, edate_full := shift(sdate_full, type = "lead"), by = ccode]
-leader_data[is.na(edate_full), edate_full := as.Date("2100-01-01")]  # current leaders with na end dates set to future so they are included
+leader_data <- leader_data %>% # current leaders with na end dates set to future so they are included
+  mutate(edate_full = replace_na(edate_full, as.Date("2100-01-01")))  
 
 # make base data a data table and fix month/year issue
 setDT(base_data)
@@ -435,6 +435,10 @@ base_data[, `:=`(
 )]
 
 # Set keys for fast joins
+detach("package:data.table", unload = TRUE)
+library(data.table)
+setDT(leader_data)
+setDT(base_data)
 setkey(leader_data, ccode, sdate_full, edate_full)
 setkey(base_data, ccode)
 
@@ -469,6 +473,8 @@ leaders_10yr <- leader_data[
 # Merge results back
 both_leader <- leaders_5yr[leaders_10yr, on = .(ccode, date)]
 base_data <- base_data[both_leader, on = .(ccode, date)]
+
+#a few N/As in the prop_milit_career (1.16%) because we do not have data in reign; overwise looks good
 
 # Clean up
 rm(leader_data, both_leader, leaders_10yr, leaders_5yr)
