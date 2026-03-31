@@ -402,8 +402,9 @@ base_data <- base_data %>%
 #------------------------------------------------------------------------------------------------#
 #civil conflict severity (battle-related deaths) from UCDP; https://ucdp.uu.se/downloads/
 #------------------------------------------------------------------------------------------------#  
-  
-  #bring in data
+#leah- updated through 2026; every month is showing the same value for the year, not sure if thats ideal but could be fixed later
+
+#bring in data
 url <- "https://ucdp.uu.se/downloads/brd/ucdp-brd-conf-251-xlsx.zip"
 download.file(url, "data.zip")
 unzip("data.zip", exdir="data")
@@ -421,18 +422,19 @@ brd <- brd %>%
   summarise(brd=sum(bd_best, na.rm=TRUE), .groups="drop")
 brd <- brd %>%
   left_join(ccodes, by=c("country", "year"))
-brd <- brd %>%
-  filter(!is.na(ccode)) %>%
-  mutate(year=year+1) %>% #just lagged
-  distinct()
 #expand for 2025; assume that conflicts in 2024 continue to 2025
+brd_2025 <- brd %>%
+  filter(!is.na(ccode)) %>%
+  distinct() %>%
+  filter(year == 2024) %>%
+  mutate(year = 2025)
 brd <- brd %>%
-  mutate(expand=ifelse(year==2024, 2, 1)) %>%
-  uncount(expand) %>%
-  arrange(ccode, year) %>%
-  mutate(year=ifelse(year==2024 & lag(year)==2024 & ccode==lag(ccode), 2025, year)) %>%
-  group_by(ccode, year) %>%
-  summarise(brd=sum(brd, na.rm=TRUE), .groups="drop") %>%
+  bind_rows(brd_2025) %>%
+  arrange(country, ccode, year)
+brd <- brd %>%
+  group_by(ccode) %>%
+  mutate(year=year+1) %>% #just lagged
+  distinct() %>%
   select(ccode, year, brd)
 #merge
 base_data <- base_data %>%
