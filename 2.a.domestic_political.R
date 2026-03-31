@@ -325,10 +325,16 @@ milreg <- milreg %>%
   select(-reign_type) %>%
   mutate(year=year+1) %>% #just lagged
   distinct()
-
+#originally filled all n/as as 0; now making assuption that milreg stays if 1 in march 2026 and then filling all remaining n/a with 0
 base_data <- base_data %>%
-  left_join(milreg, by=c("ccode", "year", "month")) %>%
-  mutate(milreg=ifelse(is.na(milreg), 0, milreg)) 
+  left_join(milreg, by = c("ccode", "year", "month"))
+still_active <- milreg %>%
+  filter(year == 2026, month == 3, milreg == 1) %>%
+  pull(ccode)
+base_data <- base_data %>%
+  mutate(milreg = ifelse(ccode %in% still_active & year == 2026 & month == 4, 1, milreg)) 
+base_data <- base_data %>%
+  mutate(milreg = replace_na(milreg, 0))
 rm(milreg)
 base_data <- base_data %>%
   set_variable_labels(milreg="milreg from reign; powell updates") %>%
