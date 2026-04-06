@@ -41,6 +41,10 @@ library(lme4) # Linear and generalized linear mixed-effects models
 library(MASS) # Various statistical models and methods
 library(margins) # Calculate marginal effects
 library(fixest) # Fixed effects, clustering, AR(1), fast estimation
+library(lm.beta) # Standardized Regression Coefficients or Beta weights
+library(margins) # Marginal effects from model objects 
+library(caret) # Classification and Regression Training
+
 
 # Spatial Analysis
 library(sf) # Handle spatial data and analysis
