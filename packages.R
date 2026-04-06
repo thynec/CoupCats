@@ -44,6 +44,8 @@ install.packages("lme4") # Linear and generalized linear mixed-effects models
 install.packages("MASS") # Various statistical models and methods
 install.packages("margins") #Used for marginal effects
 install.packages("fixest") # Fixed effects models, clustering, AR(1), fast estimation
+install.packages("lm.beta") # Standardized regression coefficients Beta Weights
+
 
 # Spatial Analysis
 install.packages("sf") # Handle spatial data and analysis
