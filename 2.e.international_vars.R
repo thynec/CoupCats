@@ -1024,6 +1024,49 @@ base_data <- base_data %>%
 rm(atop)
 #### Important note about alliances data: The ATOP dataset treats alliances that were still valid as of December 31, 2018 (they use yrexit==0), as ongoing. This means that if an alliance ended after 2018, it is still considered ongoing and will be marked as active in the dataset. 
 
+#------------------------------------------------------------------------------------------------#
+#                                       US Foreign Assistance
+#------------------------------------------------------------------------------------------------# 
+
+# July 1945 - October 2025
+
+aid <- read_csv("https://s3.amazonaws.com/files.explorer.devtechlab.com/us_foreign_aid_country.csv")
+
+us_aid <- aid %>%
+  filter(`Transaction Type Name` == "Obligations") %>%
+  group_by(`Country Name`, `Fiscal Year`) %>%
+  summarise(us_aid = sum(constant_amount, na.rm = TRUE), .groups = "drop") %>%
+  rename(
+    country = `Country Name`,
+    year = `Fiscal Year`
+  ) %>%
+  mutate(year = as.integer(year)) %>%
+  filter(!is.na(year)) %>% 
+  left_join(ccodes, by = c("country", "year")) %>%
+  mutate(
+    date = case_when(
+      year < 1977 ~ make_date(year - 1, 7, 1),   # old system prior to 1976: July 1 of prior year
+      TRUE        ~ make_date(year - 1, 10, 1)    # new system: Oct 1 of prior year
+    ),
+    cal_year = year(date),
+    month = month(date),
+    day = day(date),
+    us_aid_log = log1p(pmax(us_aid, 0)),
+  ) %>% 
+  mutate(ccode = case_when(
+    country == "Korea, Democratic Republic of" ~ 731,   
+    country == "Czechoslovakia (former)"        ~ 315,   
+    TRUE ~ ccode
+  )) %>%
+  filter(!is.na(ccode)) %>% 
+  select(c(ccode, year = cal_year, month, us_aid, us_aid_log))
+  
+
+base_data <- base_data %>% 
+  left_join(us_aid, by = c("ccode", "year", "month"))
+  
+rm(aid, us_aid)
+
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
 #clean up if needed and export
