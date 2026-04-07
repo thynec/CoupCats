@@ -215,111 +215,12 @@ base_data <- base_data %>%
   fill(milit, .direction="updown")
 rm(milit)
 
-# #------------------------------------------------------------------------------------------------#
-# #elections; from Vdem
-# #------------------------------------------------------------------------------------------------#    
-
-# #read in country-date version
-# url <- "https://www.v-dem.net/media/datasets/V-Dem-CD-v14_csv_5jzTg6X.zip"
-# download.file(url, "data.zip")
-# unzip("data.zip", exdir="data")
-# unlink("data.zip")
-# df_og <- read_csv("data/V-Dem-CD-v14.csv")
-# unlink("data", recursive=TRUE)
-# rm(url)  
-
-# #clean up data
-# summary(df_og$year) #1789 through 2023 for missing
-# df <- df_og %>%
-#   filter(year>1945) %>%
-#   select(
-#     country_name, year, historical_date, 
-#     v2eltype_0, v2eltype_1, v2eltype_2, v2eltype_3, v2eltype_4, v2eltype_5, v2eltype_6, v2eltype_7, v2eltype_8, v2eltype_9)
-# df <- df %>%
-#   filter(!is.na(v2eltype_0)) %>% # removing non-election data
-#   mutate(election=1) %>%
-#   mutate(legis_elec=ifelse(v2eltype_0==1 | v2eltype_1==1 | v2eltype_2==1 | v2eltype_3==1, 1, 0)) %>%
-#   mutate(pres_elec=ifelse(v2eltype_6==1 | v2eltype_7==1, 1, 0)) 
-# df <- df %>%
-#   select(country_name, year, historical_date, election, legis_elec, pres_elec) %>%
-#   mutate(month=month(historical_date)) %>%
-#   select(country=country_name, year, month, election, legis_elec, pres_elec) %>%
-#   left_join(ccodes, by=c("country", "year"))
-# #collapse so we don't have duplicate ccode/year/months; then merge; one at a time
-# df2 <- df %>%
-#   group_by(ccode, year, month) %>%
-#   dplyr::summarize(election = max(election, na.rm=TRUE)) 
-# base_data <- base_data %>%
-#   left_join(df2, by=c("ccode", "year", "month"))
-# df2 <- df %>%
-#   group_by(ccode, year, month) %>%
-#   dplyr::summarize(legis_elec = max(legis_elec, na.rm=TRUE)) 
-# base_data <- base_data %>%
-#   left_join(df2, by=c("ccode", "year", "month"))
-# df2 <- df %>%
-#   group_by(ccode, year, month) %>%
-#   dplyr::summarize(pres_elec = max(pres_elec, na.rm=TRUE)) 
-# base_data <- base_data %>%
-#   left_join(df2, by=c("ccode", "year", "month"))  
-# rm(df, df_og, df2)
-# base_data <- base_data %>%
-#   set_variable_labels(
-#     election="any election, vdem",
-#     legis_elec="legis elec, vdem", 
-#     pres_elec="presidential elec, vdem") %>%
-#   ungroup()
-
-# #set up vars that are 3 months before elections
-# base_data <- base_data %>%
-#   arrange(ccode, year, month) %>%
-#   mutate(election=ifelse(is.na(election) & year<2024, 0, election)) %>%
-#   mutate(legis_elec=ifelse(is.na(legis_elec) & year<2024, 0, legis_elec)) %>%
-#   mutate(pres_elec=ifelse(is.na(pres_elec) & year<2024, 0, pres_elec)) 
-# base_data <- base_data %>%
-#   mutate(elec=ifelse(ccode==lead(ccode), lead(election), election)) %>%
-#   mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), election)) %>%
-#   mutate(elec_lag=elec+elec2+election) %>%
-#   set_variable_labels(elec_lag="1 if 1-3 mo B4 any elec, vdem") %>%
-#   select(-elec, -elec2)
-# base_data <- base_data %>%
-#   mutate(elec=ifelse(ccode==lead(ccode), lead(legis_elec), legis_elec)) %>%
-#   mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), legis_elec)) %>%
-#   mutate(legis_elec_lag=elec+elec2+legis_elec) %>%
-#   set_variable_labels(legis_elec_lag="1 if 1-3 mo B4 legis elec, vdem") %>%
-#   select(-elec, -elec2)  
-# base_data <- base_data %>%
-#   mutate(elec=ifelse(ccode==lead(ccode), lead(pres_elec), pres_elec)) %>%
-#   mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), pres_elec)) %>%
-#   mutate(pres_elec_lag=elec+elec2+pres_elec) %>%
-#   set_variable_labels(pres_elec_lag="1 if 1-3 mo B4 pres elec, vdem") %>%
-#   select(-elec, -elec2)  
-# #set up vars that are 3 months after elections
-# base_data <- base_data %>%
-#   mutate(lead1=ifelse(ccode==lag(ccode), lag(election), election)) %>%
-#   mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), election)) %>%
-#   mutate(elec_lead=election+lead1+lead2) %>%
-#   set_variable_labels(elec_lead="1 if 1-3 mo after any elec, vdem") %>%
-#   select(-lead1, -lead2, -election)
-# base_data <- base_data %>%
-#   mutate(lead1=ifelse(ccode==lag(ccode), lag(legis_elec), legis_elec)) %>%
-#   mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), legis_elec)) %>%
-#   mutate(legis_elec_lead=legis_elec+lead1+lead2) %>%
-#   set_variable_labels(legis_elec_lead="1 if 1-3 mo after legis elec, vdem") %>%
-#   select(-lead1, -lead2, -legis_elec)  
-# base_data <- base_data %>%
-#   mutate(lead1=ifelse(ccode==lag(ccode), lag(pres_elec), pres_elec)) %>%
-#   mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), pres_elec)) %>%
-#   mutate(pres_elec_lead=pres_elec+lead1+lead2) %>%
-#   set_variable_labels(pres_elec_lead="1 if 1-3 mo after pres elec, vdem") %>%
-#   select(-lead1, -lead2, -pres_elec)  
-
 #------------------------------------------------------------------------------------------------#
 # election data; REIGN; 4/7/26
 #------------------------------------------------------------------------------------------------#
-install.packages("googlesheets4") # Reads Google Sheets files
-library(googlesheets4) # Reads Google Sheets files
-election <- read_sheet("1zYI_kqONAyMW1rehC-fkL7xIeqkbphkBgjc1amfrbfs")
-# the googlesheets4 package requires that you log in to a google account when accessing data; would be better to import this as a csv
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/REIGN%20election%20list%202025%2009%2011%20-%20election_list_12_21.csv"
+election <- fread(url)
+rm(url)
 
 election_events <- election %>%
   rename(year = elec_year, month = elec_month) %>%
@@ -584,6 +485,104 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 ###############################################################################################
 #Below is stuff we probably won't use but keeping it here just in case...
 ###############################################################################################
+
+# #------------------------------------------------------------------------------------------------#
+# #elections; from Vdem
+# #------------------------------------------------------------------------------------------------#    
+
+# #read in country-date version
+# url <- "https://www.v-dem.net/media/datasets/V-Dem-CD-v14_csv_5jzTg6X.zip"
+# download.file(url, "data.zip")
+# unzip("data.zip", exdir="data")
+# unlink("data.zip")
+# df_og <- read_csv("data/V-Dem-CD-v14.csv")
+# unlink("data", recursive=TRUE)
+# rm(url)  
+
+# #clean up data
+# summary(df_og$year) #1789 through 2023 for missing
+# df <- df_og %>%
+#   filter(year>1945) %>%
+#   select(
+#     country_name, year, historical_date, 
+#     v2eltype_0, v2eltype_1, v2eltype_2, v2eltype_3, v2eltype_4, v2eltype_5, v2eltype_6, v2eltype_7, v2eltype_8, v2eltype_9)
+# df <- df %>%
+#   filter(!is.na(v2eltype_0)) %>% # removing non-election data
+#   mutate(election=1) %>%
+#   mutate(legis_elec=ifelse(v2eltype_0==1 | v2eltype_1==1 | v2eltype_2==1 | v2eltype_3==1, 1, 0)) %>%
+#   mutate(pres_elec=ifelse(v2eltype_6==1 | v2eltype_7==1, 1, 0)) 
+# df <- df %>%
+#   select(country_name, year, historical_date, election, legis_elec, pres_elec) %>%
+#   mutate(month=month(historical_date)) %>%
+#   select(country=country_name, year, month, election, legis_elec, pres_elec) %>%
+#   left_join(ccodes, by=c("country", "year"))
+# #collapse so we don't have duplicate ccode/year/months; then merge; one at a time
+# df2 <- df %>%
+#   group_by(ccode, year, month) %>%
+#   dplyr::summarize(election = max(election, na.rm=TRUE)) 
+# base_data <- base_data %>%
+#   left_join(df2, by=c("ccode", "year", "month"))
+# df2 <- df %>%
+#   group_by(ccode, year, month) %>%
+#   dplyr::summarize(legis_elec = max(legis_elec, na.rm=TRUE)) 
+# base_data <- base_data %>%
+#   left_join(df2, by=c("ccode", "year", "month"))
+# df2 <- df %>%
+#   group_by(ccode, year, month) %>%
+#   dplyr::summarize(pres_elec = max(pres_elec, na.rm=TRUE)) 
+# base_data <- base_data %>%
+#   left_join(df2, by=c("ccode", "year", "month"))  
+# rm(df, df_og, df2)
+# base_data <- base_data %>%
+#   set_variable_labels(
+#     election="any election, vdem",
+#     legis_elec="legis elec, vdem", 
+#     pres_elec="presidential elec, vdem") %>%
+#   ungroup()
+
+# #set up vars that are 3 months before elections
+# base_data <- base_data %>%
+#   arrange(ccode, year, month) %>%
+#   mutate(election=ifelse(is.na(election) & year<2024, 0, election)) %>%
+#   mutate(legis_elec=ifelse(is.na(legis_elec) & year<2024, 0, legis_elec)) %>%
+#   mutate(pres_elec=ifelse(is.na(pres_elec) & year<2024, 0, pres_elec)) 
+# base_data <- base_data %>%
+#   mutate(elec=ifelse(ccode==lead(ccode), lead(election), election)) %>%
+#   mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), election)) %>%
+#   mutate(elec_lag=elec+elec2+election) %>%
+#   set_variable_labels(elec_lag="1 if 1-3 mo B4 any elec, vdem") %>%
+#   select(-elec, -elec2)
+# base_data <- base_data %>%
+#   mutate(elec=ifelse(ccode==lead(ccode), lead(legis_elec), legis_elec)) %>%
+#   mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), legis_elec)) %>%
+#   mutate(legis_elec_lag=elec+elec2+legis_elec) %>%
+#   set_variable_labels(legis_elec_lag="1 if 1-3 mo B4 legis elec, vdem") %>%
+#   select(-elec, -elec2)  
+# base_data <- base_data %>%
+#   mutate(elec=ifelse(ccode==lead(ccode), lead(pres_elec), pres_elec)) %>%
+#   mutate(elec2=ifelse(ccode==lead(ccode), lead(elec), pres_elec)) %>%
+#   mutate(pres_elec_lag=elec+elec2+pres_elec) %>%
+#   set_variable_labels(pres_elec_lag="1 if 1-3 mo B4 pres elec, vdem") %>%
+#   select(-elec, -elec2)  
+# #set up vars that are 3 months after elections
+# base_data <- base_data %>%
+#   mutate(lead1=ifelse(ccode==lag(ccode), lag(election), election)) %>%
+#   mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), election)) %>%
+#   mutate(elec_lead=election+lead1+lead2) %>%
+#   set_variable_labels(elec_lead="1 if 1-3 mo after any elec, vdem") %>%
+#   select(-lead1, -lead2, -election)
+# base_data <- base_data %>%
+#   mutate(lead1=ifelse(ccode==lag(ccode), lag(legis_elec), legis_elec)) %>%
+#   mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), legis_elec)) %>%
+#   mutate(legis_elec_lead=legis_elec+lead1+lead2) %>%
+#   set_variable_labels(legis_elec_lead="1 if 1-3 mo after legis elec, vdem") %>%
+#   select(-lead1, -lead2, -legis_elec)  
+# base_data <- base_data %>%
+#   mutate(lead1=ifelse(ccode==lag(ccode), lag(pres_elec), pres_elec)) %>%
+#   mutate(lead2=ifelse(ccode==lag(ccode), lag(lead1), pres_elec)) %>%
+#   mutate(pres_elec_lead=pres_elec+lead1+lead2) %>%
+#   set_variable_labels(pres_elec_lead="1 if 1-3 mo after pres elec, vdem") %>%
+#   select(-lead1, -lead2, -pres_elec)  
 
 # -------------------------- Political Data ------------------------------ #
 #
