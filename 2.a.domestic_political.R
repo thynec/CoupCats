@@ -88,6 +88,7 @@ tenure <- tenure %>%
   mutate(drop = ifelse(ccode == lag(ccode) & year == lag(year) & month == lag(month), 1, 0)) %>%
   filter(drop!=1) #basically just lagged so outgoing leaders is counted in months where there was a transition; see Powell's email for a better way
 tenure <- tenure %>%
+  mutate(birthyear=ifelse(birthyear<0, NA, birthyear)) %>%
   select(ccode, month, year, Leader_duration=month_counter, birthyear) %>%
   mutate(Leader_age=year-birthyear+1) %>%
   select(-birthyear)
@@ -133,15 +134,7 @@ table(regime_type$regime_type, regime_type$electoral_democracy)
 table(regime_type$regime_type, regime_type$liberal_democracy)
 #all above looks good
 regime_type <- regime_type %>%
-  select(-regime_type)
-
-#Expand to create year=2026; assume it's the same as 2025
-regime_type <- regime_type %>%
-  mutate(expand=ifelse(year==2025, 2, 1)) %>%
-  expandRows("expand", drop=FALSE) %>%
-  arrange(ccode, year) %>%
-  mutate(year=ifelse(year==2025 & lag(year)==2025 & ccode==lag(ccode), 2026, year)) %>%
-  select(-expand) %>%
+  select(-regime_type) %>%
   mutate(month=12)
 
 #Merging into data set. 
@@ -214,6 +207,27 @@ base_data <- base_data %>%
   group_by(ccode, year) %>%
   fill(milit, .direction="updown")
 rm(milit)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #------------------------------------------------------------------------------------------------#
 # election data; REIGN; 4/7/26
@@ -910,4 +924,3 @@ write.csv(base_data, gzfile("2.a.base_data.csv.gz"), row.names = FALSE)
 #emma_data <- emma_data %>% 
 #  left_join(age_expectancy, by = c("country", "year", "ccode"), relationship = "many-to-many")
 #rm(age_expectancy)  
-
