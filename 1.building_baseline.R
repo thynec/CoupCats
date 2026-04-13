@@ -1,6 +1,6 @@
-#------------------------------------------------------------------------------------------------#  
-#Ccodes and Baseline Data
-#------------------------------------------------------------------------------------------------#  
+#------------------------------------------------------------------------------------------------
+#Baseline data: unit of analysis; ccodes; DVs + autocorrelation needs
+#------------------------------------------------------------------------------------------------ 
 
 # Country codes (Thyne 2022). 
 url <- "https://www.uky.edu/~clthyn2/replace_ccode_country.xls" # Bringing in ccodes to merge. 
@@ -16,7 +16,11 @@ update <- base_data %>%
   mutate(year=year+2)
 base_data <- base_data %>%
   full_join(update, by=c("ccode", "year", "month", "country")) %>%
-  arrange(ccode, year, month)
+  arrange(ccode, year, month) %>%
+  mutate(cut=ifelse(year==2026 & month>4, 1, 0)) %>%
+  filter(cut!=1) %>%
+  arrange(ccode, year, month) %>%
+  select(-cut)
 rm(update)
 
 # Coup data (Powell & Thyne 2011). 
@@ -258,16 +262,24 @@ stability <- stability %>%
   filter(!is.na(ccode)) %>%
   mutate(month=12) %>%
   set_variable_labels(stability="from WB") %>%
-  select(-country)
+  select(-country) %>%
+  filter(!is.na(stability)) %>%
+  group_by(ccode, year, month) %>%
+  distinct() %>%
+  ungroup()
+
+#turn into Z scores; merge into base
+stability <- stability %>%
+  mutate(stability=as.numeric(scale(stability)))
 base_data <- base_data %>%
   left_join(stability, by=c("ccode", "year", "month"))
 rm(stability)
 
 #1.4 Interpolation
-summary(base_data$stability) #range: -3.313, 1.759
+summary(base_data$stability) #range: -3.365, 1.871
 stab <- base_data %>%
   filter(!is.na(stability))
-summary(stab$year) #1997 - 2024
+summary(stab$year) #1996 - 2023
 rm(stab)
 base_data <- base_data %>%
   arrange(ccode, year, month) %>%
@@ -276,8 +288,8 @@ base_data <- base_data %>%
   select(-stability) %>%
   set_variable_labels(stability_OG = "from WB, t-1, original") %>%
   mutate(stability_WB = na.approx(stability_OG, x=row_number(), na.rm=FALSE, rule=2)) %>%
-  mutate(stability_WB=ifelse(stability_WB < -3.313, -3.313, stability_WB)) %>%
-  mutate(stability_WB=ifelse(stability_WB > 1.759, 1.759, stability_WB))
+  mutate(stability_WB=ifelse(stability_WB < -3.365, -3.365, stability_WB)) %>%
+  mutate(stability_WB=ifelse(stability_WB > 1.871, 1.871, stability_WB))
 
 #------------------------------------------------------------------------------------------------#  
 #add in protest data from acled
