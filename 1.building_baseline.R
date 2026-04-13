@@ -336,6 +336,7 @@ base_data <- base_data %>%
   rename(acled_OG=acled) %>%
   set_variable_labels(acledl = "acled, t-1, log10") %>%
   set_variable_labels(acled_OG = "acled, t-1, original") %>%
-  set_variable_labels(protests="acled+WB splice, t-1, Z")
+  set_variable_labels(protests="acled+WB splice, t-1, Z") %>%
+  rename(protests_DV=protests)
 base_data <- base_data %>%
   select(-stability_OG, -stability_WB, -acled_OG, -acledl, -acledlz)
