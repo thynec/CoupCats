@@ -28,7 +28,7 @@ rm(url)
 base_data <- base_data.2a
 rm(base_data.2a)
 base_data.2b <- base_data.2b %>%
-  dplyr::select(-country, -coup_attempt, -pce, -pce2, -pce3)
+  dplyr::select(-country, -coup_attempt, -coup_successful, -pce, -pce2, -pce3, -pce_succ, -pce2_succ, -pce3_succ, -cw, -cw_onset, -pce_cw, -pce2_cw, -pce3_cw, -protests)
 base_data <- base_data %>%
   left_join(base_data.2b, by=c("ccode", "year", "month"))
 rm(base_data.2b)
