@@ -8,8 +8,8 @@
 rm(list = ls())
 #2. set working directory
 #setwd("~/R/coupcats") # Set working file. 
-setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #Clay at home
-#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #Clay at home
+setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
 #setwd("~/Desktop/TEK 300") #Leah
 #3. install packages
 #source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
@@ -274,12 +274,12 @@ base_data <- base_data %>%
 
 # Bringing in data. 
 wb <- WDI(country = "all",
-                  indicator = c("DT.ODA.ODAT.GN.ZS", "NY.GDP.NGAS.RT.ZS", "NY.GDP.TOTL.RT.ZS",
-                                "DT.TDS.DECT.GN.ZS", "ST.INT.RCPT.CD", "ST.INT.XPND.CD", 
-                                "SI.POV.GINI"),
-                  start = 1960,
-                  end = 2026,
-                  extra = TRUE)
+          indicator = c("DT.ODA.ODAT.GN.ZS", "NY.GDP.NGAS.RT.ZS", "NY.GDP.TOTL.RT.ZS",
+                        "DT.TDS.DECT.GN.ZS", "ST.INT.RCPT.CD", "ST.INT.XPND.CD", 
+                        "SI.POV.GINI"),
+          start = 1960,
+          end = 2026,
+          extra = TRUE)
 
 # Cleaning up data. 
 wb <- wb %>% 
@@ -314,9 +314,9 @@ rm(wb)
 #deal with missing data
 summary(base_data$oda) #oda range: -8.224, 169.593
 oda <- base_data %>% 
-    filter(!is.na(oda))
-  summary(oda$year) #oda = 1961-2024; assume na=0
-  rm(oda)
+  filter(!is.na(oda))
+summary(oda$year) #oda = 1961-2024; assume na=0
+rm(oda)
 base_data <- base_data %>%
   arrange(ccode, year, month) %>%
   group_by(ccode) %>%
@@ -336,8 +336,8 @@ base_data <- base_data %>%
 summary(base_data$nr_rents) #nr_rents range: 0, 88.592
 nr_rents <- base_data %>% 
   filter(!is.na(nr_rents))
-    summary(nr_rents$year) #nr_rents = 1971-2022
-    rm(nr_rents)
+summary(nr_rents$year) #nr_rents = 1971-2022
+rm(nr_rents)
 base_data <- base_data %>%
   arrange(ccode, year, month) %>%
   group_by(ccode) %>%
@@ -353,11 +353,11 @@ base_data <- base_data %>%
   mutate(nr_rents=ifelse(is.na(nr_rents) & year>=1971, 0, nr_rents)) %>%
   mutate(nr_rents=ifelse(nr_rents<0, 0, nr_rents)) %>%
   mutate(nr_rents=ifelse(nr_rents>88.592, 88.592, nr_rents))
-    
+
 summary(base_data$debt) #debt range: 0, 102.222
 debt <- base_data %>% filter(!is.na(debt))
-  summary(debt$year) #debt = 1971-2025
-    rm(debt)
+summary(debt$year) #debt = 1971-2025
+rm(debt)
 base_data <- base_data %>%
   arrange(ccode, year, month) %>%
   group_by(ccode) %>%
@@ -377,49 +377,6 @@ base_data <- base_data %>%
 base_data <- base_data %>%
   relocate(country, ccode, year, month, coup_attempt, gdppc, hc, oda, nr_rents, debt, gini)
 
-#-------------------------------------------------------------------------------------#
-#   Bringing in ECI 
-#-------------------------------------------------------------------------------------#
-#"Growth Lab and Complexity Rankings" 
-
-
-eci_data <- read.csv("https://raw.githubusercontent.com/catalinahix06-star/CoupCats/refs/heads/main/growth_proj_eci_rankings.csv")
-
-install.packages("countrycode")
-library(countrycode) 
-
-eci_data2 <- eci_data %>%
-  mutate(country = countrycode(country_iso3_code,
-                               origin = "iso3c",
-                               destination = "country.name"))
-
-eci_data2b <- eci_data2 %>% #main dataset to use
-  select(
-    country, 
-    eci_hs92, #economic complexity number
-    eci_rank_hs92,  #ranking 
-    year) %>%
-  mutate(year=year+1) %>% #lagging 
-  mutate(month = list(1:12)) %>% #expand to monthly 
-  unnest(month)%>% 
-  mutate(across(
-    c(eci_hs92, 
-      eci_rank_hs92), 
-    ~ifelse(month == 12, .x, NA)
-  )) 
-
-base_data <- base_data %>% #merging base data with eci data 
-  left_join(eci_data2b %>%
-              select(country, 
-                     year, 
-                     month, 
-                     eci_hs92, 
-                     eci_rank_hs92), 
-            by = c("country", 
-                   "year", 
-                   "month"))  
-view(base_data) 
-    
 #------------------------------------------------#
 #Work on GINI; splice WDI/WIID/SWIID
 #------------------------------------------------#
@@ -432,12 +389,12 @@ summary(gini$year) #debt = 1964-2025
 rm(gini)
 
 #Pulling Gini from UN WIID
-url <- "https://www.wider.unu.edu/sites/default/files/WIID/wiidcountry_4.xlsx"
+url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/wiidcountry_4.xlsx"
 destfile <- "wiidcountry_4.xlsx"
 curl::curl_download(url, destfile)
 wiid <- read_excel(destfile)
 rm(destfile, url)
-  
+
 wiid <- wiid %>%
   arrange(country, year)
 wiid <- wiid %>%
@@ -518,7 +475,7 @@ rm(swiid)
 cor.test(base_data$gini_wdi_OG, base_data$gini_wiid_OG) 
 cor.test(base_data$gini_wdi_OG, base_data$gini_swiid_OG)
 cor.test(base_data$gini_wiid_OG, base_data$gini_swiid_OG) 
-  #...getting at the same thing
+#...getting at the same thing
 
 base_data <- base_data %>%
   ungroup() %>%
@@ -543,11 +500,58 @@ base_data <- base_data %>%
   mutate(gini=lin_extrap(row_number(), gini_OG)) %>%
   mutate(gini=ifelse(gini < -2.464, -2.464, gini)) %>%
   mutate(gini=ifelse(gini > 3.438, 3.438, gini))
-  
+
 base_data <- base_data %>%
   relocate(country, ccode, year, month, coup_attempt, pce, pce2, pce3, gdppc, hc, oda, nr_rents, debt, gini) %>%
   select(-time_id)
 rm(lin_extrap)
+
+#-------------------------------------------------------------------------------------#
+#   Bringing in ECI 
+#-------------------------------------------------------------------------------------#
+#"Growth Lab and Complexity Rankings" 
+
+
+eci_data <- read.csv("https://raw.githubusercontent.com/catalinahix06-star/CoupCats/refs/heads/main/growth_proj_eci_rankings.csv")
+
+install.packages("countrycode")
+library(countrycode) 
+
+eci_data2 <- eci_data %>%
+  mutate(country = countrycode(country_iso3_code,
+                               origin = "iso3c",
+                               destination = "country.name"))
+
+eci_data2b <- eci_data2 %>% #main dataset to use
+  select(
+    country, 
+    eci_hs92, #economic complexity number
+    eci_rank_hs92,  #ranking 
+    year) %>%
+  mutate(year=year+1) %>% #lagging 
+  mutate(month = list(1:12)) %>% #expand to monthly 
+  unnest(month)%>% 
+  mutate(across(
+    c(eci_hs92, 
+      eci_rank_hs92), 
+    ~ifelse(month == 12, .x, NA)
+  )) 
+
+base_data <- base_data %>% #merging base data with eci data 
+  left_join(eci_data2b %>%
+              select(country, 
+                     year, 
+                     month, 
+                     eci_hs92, 
+                     eci_rank_hs92), 
+            by = c("country", 
+                   "year", 
+                   "month"))  
+
+#clean up
+base_data <- base_data %>%
+  select(-oda_OG, -nr_rents_OG, -debt_OG, -gini_OG, vdem_gdppc_OG, -gini_wdi_OG, -gini_wiid_OG, -gini_swiid_OG, -hc_OG, -wdi_gdppc_OG, -vdem_gdppc_OG)
+
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
