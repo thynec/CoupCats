@@ -1,18 +1,53 @@
-#starting final analyses as of 04/07/26
-
 rm(list = ls())
 
-url <- "https://github.com/thynec/CoupCats/raw/refs/heads/data/leidos_final"
-df <- fread(url)
-df <- df %>%
-  arrange(ccode, year, month) %>%
-  mutate(time_id = year * 12 + month)
+#2.a.domestic political
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.a.base_data.csv.gz"
+base_data.2a <- fread(url)
 rm(url)
+#2.b.domestic economic
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.b.base_data.csv.gz"
+base_data.2b <- fread(url)
+rm(url)
+#2.c.political instability
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.c.base_data.csv.gz"
+base_data.2c <- fread(url)
+rm(url)
+#2.d.military variables
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.d.base_data.csv.gz"
+base_data.2d <- fread(url)
+rm(url)
+#2.e.international variables
+url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.e.base_data.csv.gz"
+base_data.2e <- fread(url)
+rm(url)
+
+base_data <- base_data.2a
+rm(base_data.2a)
+base_data.2b <- base_data.2b %>%
+  dplyr::select(-country, -coup_attempt, -coup_successful, -pce, -pce2, -pce3, -pce_succ, -pce2_succ, -pce3_succ, -cw, -cw_onset, -pce_cw, -pce2_cw, -pce3_cw, -protests_DV)
+base_data <- base_data %>%
+  left_join(base_data.2b, by=c("ccode", "year", "month"))
+rm(base_data.2b)
+base_data.2c <- base_data.2c %>%
+  dplyr::select(-country, -coup_attempt, -coup_successful, -pce, -pce2, -pce3, -pce_succ, -pce2_succ, -pce3_succ, -cw, -cw_onset, -pce_cw, -pce2_cw, -pce3_cw, -protests)
+base_data <- base_data %>%
+  left_join(base_data.2c, by=c("ccode", "year", "month"))
+rm(base_data.2c)    
+base_data.2d <- base_data.2d %>%
+  dplyr::select(-country, -coup_attempt, -coup_successful, -pce, -pce2, -pce3, -pce_succ, -pce2_succ, -pce3_succ, -cw, -cw_onset, -pce_cw, -pce2_cw, -pce3_cw, -protests)
+base_data <- base_data %>%
+  left_join(base_data.2d, by=c("ccode", "year", "month"))
+rm(base_data.2d)    
+base_data.2e <- base_data.2e %>%
+  dplyr::select(-country, -coup_attempt, -coup_successful, -pce, -pce2, -pce3, -pce_succ, -pce2_succ, -pce3_succ, -cw, -cw_onset, -pce_cw, -pce2_cw, -pce3_cw, -protests)
+base_data <- base_data %>%
+  left_join(base_data.2e, by=c("ccode", "year", "month"))
+rm(base_data.2e)
 
 # ------------------------------------------------------------#
 # 1. Build time index
 # ------------------------------------------------------------#
-df <- df %>%
+df <- base_data %>%
   arrange(ccode, year, month) %>%
   mutate(time_id = year * 12 + month)
 
