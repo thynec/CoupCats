@@ -174,7 +174,8 @@ vdem_regime2 <- vdem %>%
 base_data <- base_data %>% 
   left_join(vdem_regime2, by = c("ccode", "year", "month")) %>%
   arrange(ccode, year, month) %>%
-  group_by(ccode, year) %>%
+  group_by(ccode) %>%
+  arrange(ccode, year, month) %>%
   fill(polyarchy, .direction="updown") %>%
   fill(polyarchy2, .direction="updown") %>%
   ungroup()
