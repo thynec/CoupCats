@@ -208,27 +208,6 @@ base_data <- base_data %>%
   fill(milit, .direction="updown")
 rm(milit)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #------------------------------------------------------------------------------------------------#
 # election data; REIGN; 4/7/26
 #------------------------------------------------------------------------------------------------#
@@ -340,6 +319,31 @@ base_data <- base_data %>%
   select(-country_milreg)
 
 #------------------------------------------------------------------------------------------------#
+# military regime proportion over last 15 years; from milreg
+#------------------------------------------------------------------------------------------------# 
+#leah - fixed grouping issue by ccode; code produces N/As for years 1950-1965 because it doesn't have a full 15 years to compute proprtion. leaving N/As for now and we can discuss if a fill method should be used
+
+sorted_base_data <- base_data %>%
+  arrange(country, year, month)
+
+base_data_prop <- sorted_base_data %>%
+  group_by(ccode) %>%
+  mutate(
+    milreg_prop = rollapplyr(
+      milreg, 
+      width = 180, 
+      FUN = function(x) mean(x==1, na.rm = TRUE), 
+      fill = NA, 
+      align = "right")
+  )
+base_data_prop <- base_data_prop %>%
+  select(ccode, year, month, milreg_prop)
+
+base_data <- left_join(base_data, base_data_prop,
+                       by = c("ccode", "month", "year"))
+rm(base_data_prop, sorted_base_data)
+
+#------------------------------------------------------------------------------------------------#
 # Gender data (V-Dem) 
 #------------------------------------------------------------------------------------------------#
 
@@ -381,31 +385,6 @@ base_data <- base_data %>%
   mutate(wom_civlib=na.approx(wom_civlib, x=time_id, na.rm=FALSE, rule=2)) %>%
   select(-time_id)
 rm(gender_data) 
-
-#------------------------------------------------------------------------------------------------#
-# military regime proportion over last 15 years; from milreg
-#------------------------------------------------------------------------------------------------# 
-#leah - fixed grouping issue by ccode; code produces N/As for years 1950-1965 because it doesn't have a full 15 years to compute proprtion. leaving N/As for now and we can discuss if a fill method should be used
-
-sorted_base_data <- base_data %>%
-  arrange(country, year, month)
-
-base_data_prop <- sorted_base_data %>%
-  group_by(ccode) %>%
-  mutate(
-    milreg_prop = rollapplyr(
-      milreg, 
-      width = 180, 
-      FUN = function(x) mean(x==1, na.rm = TRUE), 
-      fill = NA, 
-      align = "right")
-  )
-base_data_prop <- base_data_prop %>%
-  select(ccode, year, month, milreg_prop)
-
-base_data <- left_join(base_data, base_data_prop,
-                       by = c("ccode", "month", "year"))
-rm(base_data_prop, sorted_base_data)
 
 #---------------------------------------------------------------------------------------------#
 #   Number of leaders over 5 and 10 years, Proportion of leaders in past 5 years with milit background (Reign)
@@ -483,11 +462,12 @@ base_data <- base_data[both_leader, on = .(ccode, date)]
 
 # Clean up
 rm(leader_data, both_leader, leaders_10yr, leaders_5yr)
-base_data <- base_data %>% select(-date, -window5, -window10, -windowEnd, -edate_full, -i.edate_full, -sdate_full, -i.sdate_full)
+base_data <- base_data %>% 
+  select(-date, -window5, -window10, -windowEnd, -edate_full, -i.edate_full, -sdate_full, -i.sdate_full, -wom_polpart_OG, -women_polemp_OG, -wom_civlib_OG, -region)
 setnames(base_data, c("Year", "Month"), c("year", "month"))
 rm(vdem_og)
-base_data <- base_data %>%
-  select(-region)
+rm(still_active)
+
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
