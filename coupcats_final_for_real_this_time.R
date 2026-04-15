@@ -1,4 +1,20 @@
+#------------------------------------------------------------------------------------------------#
+#Front-end stuff
+#------------------------------------------------------------------------------------------------#  
+
+#Building domestic political variables
+
+#1. clear all
 rm(list = ls())
+#2. set working directory
+#setwd("~/R/coupcats") # Set working file. 
+#setwd("C:/Users/clayt/OneDrive - University of Kentucky/elements/current_research/coupcats") #Clay at home
+#setwd("C:/Users/clthyn2/OneDrive - University of Kentucky/elements/teaching/1.coupcast/TEK_S26/git_2026.03.13") #clay at work
+#3. install packages
+#source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/packages.R") 
+#4. load libraries
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/libraries.R") #5. build baseline
+source("https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/main/1.building_baseline.R")
 
 #2.a.domestic political
 url <- "https://raw.githubusercontent.com/thynec/CoupCats/data/2.a.base_data.csv.gz"
@@ -59,7 +75,7 @@ df <- df %>%
 # 2. Drop unused OG variables (only if they exist)
 # ---------------------------------------------------------------------#
 df <- df %>% select(-any_of(c(
-   "wom_civlib_OG", "gini_OG", "gini_wdi_OG", "gini_wiid_OG",
+  "wom_civlib_OG", "gini_OG", "gini_wdi_OG", "gini_wiid_OG",
   "gini_swiid_OG", "vdem_gdppc_OG", "hc_OG", "oda_OG", "nr_rents_OG", "debt_OG",
   "wdi_gdppc_OG", "stability_OG", "mobilization_OG", "mobil_conc_OG", "acled_OG",
   "acledl", "acledlz", "milex_spliced_OG", "milper_spliced_OG", "trade_glob_OG",
@@ -72,16 +88,16 @@ df <- df %>% select(-any_of(c(
 # ------------------------------------------------------------#
 # 3. Define IV blocks
 # ------------------------------------------------------------#
-leader_IVs <- c("numleaders_10yr")
-regime_IVs <- c("polyarchy", "polyarchy2")
-milit_leader_IVs <- c("milreg") #"milit", "milreg_prop",,  "prop_milit_career"
-milit_IVs <- c("solqual") #"milex_spliced", "milper_spliced", , "mutiny12", "mutiny6"
+leader_IVs <- c("numleaders_10yr") #"Leader_age", "prop_milit_career", "Leader_duration"su
+regime_IVs <- c("polyarchy") #"polyarchy", "polyarchy2"
+milit_leader_IVs <- c("milreg_prop") #"milit", "milreg", "milreg_prop",,  "prop_milit_career"
+milit_IVs <- c("milper_spliced") #"solqual", "milex_spliced", "milper_spliced", , "mutiny12", "mutiny6"
 gender_IVs <- c("wom_polpart") #, "women_polemp", "wom_civlib", "gender_parity"
-econ_IVs <- c("gini", "gdppc", "ch_gdppc", "oda", "nr_rents", "debt") #, "hc"
+econ_IVs <- c("ch_gdppc") #, "hc", "gini", "oda", "nr_rents", "debt"
 stability_IVs <- c("mobilization") #"stability_WB", , "mobil_conc", , "cw_lag", "brd", "protests"
-glob_IVs <- c("signal", "mid", "trade_glob",   #"mid_primary", "pol_glob",
-              "fdi", "arrivals", "cold", "visit") #"interpersonal_glob", , "ldtrade", "ltrade"
-IO_IVs <- c("IOs_sum", "defense_alliance_active") #, "alliance_active"
+glob_IVs <- c("signal", "trade_glob",   #"mid_primary", "pol_glob",
+              "cold") #"interpersonal_glob", , "ldtrade", "ltrade"
+IO_IVs <- c("") #, , "IOs_sum", "defense_alliance_active"
 coup_auto <- c("pce", "pce2", "pce3")
 
 ivs <- c(
@@ -93,7 +109,6 @@ ivs <- c(
   econ_IVs,
   stability_IVs,
   glob_IVs,
-  IO_IVs,
   coup_auto
 )
 
@@ -102,7 +117,7 @@ fml <- as.formula(
   paste("coup_attempt ~", paste(ivs, collapse = " + "))
 )
 # Run linear model
-coup_mod <- feglm(fml, data = df, cluster=~ccode)
+coup_mod <- lm(fml, data = df, cluster=~ccode)
 
 # View results
 summary(coup_mod)
@@ -122,7 +137,5 @@ missing <- df %>%
 table(missing$country) #these are the countries that won't show up in our map
 df <- df %>%
   select(-yhat)
-
-
 
 
