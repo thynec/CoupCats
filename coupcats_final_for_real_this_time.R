@@ -138,4 +138,161 @@ table(missing$country) #these are the countries that won't show up in our map
 df <- df %>%
   select(-yhat)
 
+#------------------------------------------------------------------------------------------------#  
+#Look at top-10 idea to show that we have a good model
+#------------------------------------------------------------------------------------------------#  
+outcome <- df %>%
+  mutate(prediction_prob = predict(coup_mod, newdata=df, type="response")) %>%
+  select(ccode, year, month, coup_attempt, prediction_prob) %>%
+  filter(!is.na(prediction_prob))
+outcome <- outcome %>%
+  group_by(year) %>%
+  mutate(mean=mean(prediction_prob)) %>%
+  mutate(sd=sd(prediction_prob)) %>%
+  mutate(z=(prediction_prob-mean)/sd) %>%
+  filter(coup_attempt==1) %>%
+  mutate(percentile=pnorm(z)*100)
+tot <- nrow(outcome)
+p90 <- outcome %>%
+  filter(percentile>90)
+p90 <- nrow(p90)/tot #so 45% of coup attempts happened in states we had ranked in 90+ percentile
+outcome <- outcome %>%
+  arrange(year, -prediction_prob) %>%
+  group_by(year) %>%
+  mutate(rank=row_number()) %>%
+  ungroup()
+outcome <- outcome %>%
+  filter(coup_attempt==1) %>%
+  mutate(rank=(round(rank, 1))) %>%
+  mutate()
+
+#------------------------------------------------------------------------------------------------#  
+#Pretty table of baseline model - NEED to replace var names with labels at some point
+#------------------------------------------------------------------------------------------------#  
+
+# Marginal effects 
+mfxL <- margins(coup_mod, type = 'response') # Effect of each predictor expressed as a probability (Average Marginal Effect)
+summary(mfxL) # R rounds to 0 (virtually no effect)--remember, coups are rare events! 
+print(mfxL, digits = 6) 
+
+# Calculate DFBETAs
+dfbetas_values <- dfbetas(coup_mod) # Large DFBETAs indicate a specific observation (row) has a strong influence.
+
+# Find observations with any DFBETA greater than 2/sqrt(n). 
+influential_obsL <- apply(abs(dfbetas_values), 1, function(x) any(x > 2)) # 2 is arbitrary; common threshold for influence.
+
+# Display influential observations
+which(influential_obsL) # No single observation significantly alters the model. 
+rm(dfbetas_values, influential_obsL)
+
+# Building logit table
+model_summary <- tidy(coup_mod) 
+formatted_table <- gt(model_summary) 
+formatted_table <- fmt_number(
+  formatted_table,
+  columns = c("estimate", "std.error", "statistic", "p.value"),
+  decimals = 4) 
+formatted_table <- tab_style(
+  formatted_table,
+  style = list(cell_text(weight = "bold")),
+  locations = cells_column_labels())
+formatted_table <- data_color(
+  formatted_table,
+  columns = "p.value",
+  fn = col_numeric(
+    palette = c("blue", "black"),
+    domain = c(0, 0.05)))
+formatted_table <- tab_header(
+  formatted_table,
+  title = md("**Logistic Regression Summary**"),
+  subtitle = md("*Effect of Social and Military variables on Coup Attempts")) 
+formatted_table <- tab_source_note(
+  formatted_table,
+  source_note = "Significant p-values are highlighted in blue.")
+
+print(formatted_table)
+rm(model_summary, formatted_table)
+
+# Building marginal effects table. 
+mfxL_df <- as.data.frame(summary(mfxL))
+formatted_table <- gt(mfxL_df)
+formatted_table <- fmt_number(
+  formatted_table,
+  columns = c("AME", "SE", "z", "p", "lower", "upper"),
+  decimals = 4)
+formatted_table <- tab_style(
+  formatted_table,
+  style = list(cell_text(weight = "bold")),
+  locations = cells_column_labels())
+formatted_table <- data_color(
+  formatted_table,
+  columns = "p",
+  colors = scales::col_numeric(
+    palette = c("blue", "black"),
+    domain = c(0, 0.05)))
+formatted_table <- tab_header(
+  formatted_table,
+  title = md("**Marginal Effects Summary**"),
+  subtitle = md("*Average Marginal Effects from Logistic Regression*"))
+formatted_table <- tab_source_note(
+  formatted_table,
+  source_note = "Significant p-values are highlighted in blue.")
+
+print(formatted_table)
+rm(formatted_table)
+
+#------------------------------------------------------------------------------------------------#  
+#DIAGNOSTICS 
+#------------------------------------------------------------------------------------------------#  
+model_data <- df[complete.cases(df[, c("coup_attempt", ivs), with = FALSE]), ]
+
+#Accuracy Logit
+predicted_logit <- predict(coup_mod, type = 'response') #predicted probability
+
+# Convert probabilities to binary class labels
+predicted_classes <- ifelse(predicted_logit > 0.0045, 1, 0)
+predicted_classes <- factor(predicted_classes, levels = c(0, 1))  # Specify levels 0 and 1
+actual_classes <- factor(model_data$coup_attempt, levels = c(0, 1))  # Ensure actual labels have the same levels
+# Create confusion matrix
+conf_matrix <- confusionMatrix(as.factor(predicted_classes), as.factor(model_data$coup_attempt))
+
+# View confusion matrix
+conf_matrix
+
+# Pretty table of confusion matrix
+cm_table <- as.data.frame(conf_matrix$table)
+colnames(cm_table) <- c("Predicted", "Actual", "Freq")
+
+# Calculate percentages
+cm_table$Pct <- round(cm_table$Freq / sum(cm_table$Freq) * 100, 1)
+
+# Label correct vs incorrect
+cm_table$correct <- ifelse(
+  (cm_table$Predicted == 1 & cm_table$Actual == 1) | 
+    (cm_table$Predicted == 0 & cm_table$Actual == 0), 
+  "Correct", "Incorrect")
+
+# Relabel factor levels for display
+cm_table$Predicted <- factor(cm_table$Predicted, levels = c(1, 0), labels = c("Coup", "No Coup"))
+cm_table$Actual <- factor(cm_table$Actual, levels = c(0, 1), labels = c("No Coup", "Coup"))
+
+# Plot
+ggplot(cm_table, aes(x = Actual, y = factor(Predicted, levels = c("No Coup", "Coup")), 
+                     fill = correct, alpha = Pct)) +
+  geom_tile(color = "black", linewidth = 0.5) +
+  geom_text(aes(label = paste0(Freq, "\n(", Pct, "%)")), size = 5, alpha = 1) +
+  scale_fill_manual(values = c("Correct" = "#6baed6", "Incorrect" = "#fb6a4a")) +
+  scale_alpha_continuous(range = c(0.3, 0.9), guide = "none") +
+  labs(
+    title = "Confusion Matrix",
+    x = "Actual Coup",
+    y = "Predicted Coup",
+    fill = "Prediction"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    axis.title = element_text(size = 12),
+    panel.grid = element_blank()
+  )
 
