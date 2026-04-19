@@ -309,8 +309,9 @@ rm(mutiny)
 base_data <- base_data %>%
   mutate(
     mutiny6 = replace_na(mutiny6, 0),
-    mutiny12 = replace_na(mutiny12, 0)
-  )  
+    mutiny12 = replace_na(mutiny12, 0)) %>%
+  set_variable_labels(mutiny6="1 if mutiny in last 6 months") %>%
+  set_variable_labels(mutiny12="1 if mutiny in last 12 months")
 
 ###############################################################################################
 #Checked through above and ready to produce .csv and upload to github
