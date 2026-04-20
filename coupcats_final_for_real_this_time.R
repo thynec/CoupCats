@@ -298,9 +298,9 @@ ggplot(cm_table, aes(x = Actual, y = factor(Predicted, levels = c("No Coup", "Co
   )
 
 
-model_data$prediction_prob <- predict(coup_mod, newdata=model_data, type="response")
+model_data$yhat <- predict(coup_mod, newdata=model_data, type="response")
 years <- model_data %>%
-  filter(!is.na(prediction_prob))
+  filter(!is.na(yhat))
 summary(years$year) #these are the years that were included in the last regression; we want this to be 2026
 months <-years %>%
   filter(year==2026)
@@ -332,4 +332,3 @@ library(jsonlite)
 # Convert recent_data to JSON and save it to a file
 write_json(recent_data, path = "recent_data.json", pretty = TRUE)
 # Writes to cwd, need to write to github instead. 
-
