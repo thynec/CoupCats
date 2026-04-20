@@ -297,6 +297,16 @@ ggplot(cm_table, aes(x = Actual, y = factor(Predicted, levels = c("No Coup", "Co
     panel.grid = element_blank()
   )
 
+
+model_data$prediction_prob <- predict(coup_mod, newdata=model_data, type="response")
+years <- model_data %>%
+  filter(!is.na(prediction_prob))
+summary(years$year) #these are the years that were included in the last regression; we want this to be 2026
+months <-years %>%
+  filter(year==2026)
+summary(months$month) #this is the last month in the regression, assuming we get it updated to 2026; we want this to be 3 or 4 (March or April)
+rm(years, months)
+
 #------------------------------------------------------------------------------------------------#
 # Gets only the most recent year month in the data (for website)                                 #
 #------------------------------------------------------------------------------------------------#
@@ -314,7 +324,7 @@ if (latest_month == 0) {
 }
 
 # Filter base_data for only the most recent complete month
-recent_data <- subset(base_data, year == latest_year & month == latest_month)
+recent_data <- subset(model_data, year == latest_year & month == latest_month)
 
 # Load the necessary package
 library(jsonlite)
@@ -322,3 +332,4 @@ library(jsonlite)
 # Convert recent_data to JSON and save it to a file
 write_json(recent_data, path = "recent_data.json", pretty = TRUE)
 # Writes to cwd, need to write to github instead. 
+
