@@ -297,3 +297,28 @@ ggplot(cm_table, aes(x = Actual, y = factor(Predicted, levels = c("No Coup", "Co
     panel.grid = element_blank()
   )
 
+#------------------------------------------------------------------------------------------------#
+# Gets only the most recent year month in the data (for website)                                 #
+#------------------------------------------------------------------------------------------------#
+# Get current date
+current_date <- Sys.Date()
+
+# Get year and month of the most recent *complete* month
+latest_year <- as.integer(format(current_date, "%Y"))
+latest_month <- as.integer(format(current_date, "%m")) - 1
+
+# Adjust for January (need to go back to December of previous year)
+if (latest_month == 0) {
+  latest_month <- 12
+  latest_year <- latest_year - 1
+}
+
+# Filter base_data for only the most recent complete month
+recent_data <- subset(base_data, year == latest_year & month == latest_month)
+
+# Load the necessary package
+library(jsonlite)
+
+# Convert recent_data to JSON and save it to a file
+write_json(recent_data, path = "recent_data.json", pretty = TRUE)
+# Writes to cwd, need to write to github instead. 
