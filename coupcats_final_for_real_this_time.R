@@ -91,7 +91,7 @@ df <- df %>% select(-any_of(c(
 leader_IVs <- c("numleaders_10yr") #"Leader_age", "prop_milit_career", "Leader_duration"su
 regime_IVs <- c("polyarchy") #"polyarchy", "polyarchy2"
 milit_leader_IVs <- c("milreg_prop") #"milit", "milreg", "milreg_prop",,  "prop_milit_career"
-milit_IVs <- c("milper_spliced") #"solqual", "milex_spliced", "milper_spliced", , "mutiny12", "mutiny6"
+milit_IVs <- c("milper_spliced", "mutiny6") #"solqual", "milex_spliced", "milper_spliced", , "mutiny12", "mutiny6"
 gender_IVs <- c("wom_polpart") #, "women_polemp", "wom_civlib", "gender_parity"
 econ_IVs <- c("ch_gdppc") #, "hc", "gini", "oda", "nr_rents", "debt"
 stability_IVs <- c("mobilization") #"stability_WB", , "mobil_conc", , "cw_lag", "brd", "protests"
@@ -155,7 +155,7 @@ outcome <- outcome %>%
 tot <- nrow(outcome)
 p90 <- outcome %>%
   filter(percentile>90)
-p90 <- nrow(p90)/tot #so 45% of coup attempts happened in states we had ranked in 90+ percentile
+p90 <- nrow(p90)/tot #so 49.3% of coup attempts happened in states we had ranked in 90+ percentile
 outcome <- outcome %>%
   arrange(year, -prediction_prob) %>%
   group_by(year) %>%
@@ -209,7 +209,8 @@ formatted_table <- tab_header(
 formatted_table <- tab_source_note(
   formatted_table,
   source_note = "Significant p-values are highlighted in blue.")
-
+gtsave(formatted_table, "regression_table.html")
+webshot2::webshot("regression_table.html", "regression_table.pdf")
 print(formatted_table)
 rm(model_summary, formatted_table)
 
@@ -237,7 +238,7 @@ formatted_table <- tab_header(
 formatted_table <- tab_source_note(
   formatted_table,
   source_note = "Significant p-values are highlighted in blue.")
-
+gtsave(formatted_table, "marginal_effects_table.html")
 print(formatted_table)
 rm(formatted_table)
 
