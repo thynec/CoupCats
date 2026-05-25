@@ -210,11 +210,13 @@ base_data <- base_data %>%
 rm(milit)
 
 #------------------------------------------------------------------------------------------------#
-# election data; REIGN; 4/7/26
+# election data; REIGN; 4/14/26
 #------------------------------------------------------------------------------------------------#
-url <- "https://raw.githubusercontent.com/thynec/CoupCats/refs/heads/data/REIGN%20election%20list%202025%2009%2011%20-%20election_list_12_21.csv"
-election <- fread(url)
-rm(url)
+url <- "https://jonathanmpowell.com/wp-content/uploads/2026/04/electionlist.xlsx"
+destfile <- "electionlist.xlsx"
+curl::curl_download(url, destfile)
+election <- read_excel(destfile)
+rm(destfile, url)
 
 election_events <- election %>%
   rename(year = elec_year, month = elec_month) %>%
@@ -232,7 +234,11 @@ election_held <- election_events %>%
     victory  = max(victory,  na.rm = TRUE),
     .groups = "drop"
   ) %>%
-  mutate(victory = ifelse(is.infinite(victory), NA_integer_, victory))
+  mutate(victory = ifelse(is.infinite(victory), NA_integer_, victory),
+         inc_victory = case_when(victory == 1 ~ 1, victory == 0 ~ 0, TRUE ~ NA_integer_),
+         inc_loss = case_when(victory == 0 ~ 1, victory == 1 ~ 0, TRUE ~ NA_integer_)
+        ) %>% 
+  select(-victory)
 
 # anticipation
 vote_events <- election_events %>%
@@ -279,14 +285,23 @@ base_data <- base_data %>%
   mutate(
     election = replace_na(election, 0),
     anticipation = replace_na(anticipation, 0)
-    # victory stays NA when no election occurred
-  )
+  ) %>% 
+  group_by(ccode) %>% 
+  arrange(year, month, .by_group = TRUE) %>% 
+  mutate(
+    inc_victory = rollapply(inc_victory, width = 6, FUN = function(x) max(x, na.rm = TRUE), align = "right", fill = 0),
+    inc_loss    = rollapply(inc_loss,    width = 6, FUN = function(x) max(x, na.rm = TRUE), align = "right", fill = 0),
+    inc_victory = ifelse(is.infinite(inc_victory), 0, inc_victory),
+    inc_loss    = ifelse(is.infinite(inc_loss),    0, inc_loss)
+  ) %>% 
+  ungroup()
 
 base_data <- base_data %>%
   set_variable_labels(
     election = "1 if election held",
-    victory = "1 if incumbent won election",
-    anticipation = "upcoming election"
+    inc_victory = "1 if incumbent won election in the past 6 months",
+    inc_loss = "1 if incumbent lost election in the past 6 months",
+    anticipation = "upcoming election in the next 6 months"
   )
 
 rm(election, election_events, election_held, vote_events, first_announce,
